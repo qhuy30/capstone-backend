@@ -1,0 +1,12 @@
+# Folders
+.vscode/
+.idea/
+node_modules/
+
+# Files
+slnx.sqlite
+.suo
+# package-lock.json
+/.env
+
+shared/file/tenant_uploads

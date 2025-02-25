@@ -1,0 +1,23 @@
+module.exports = [
+    { key: 'CalculateDimensionsTool', value: 'Công cụ tính toán hình ảnh' },
+    { key: 'Width (pixels)', value: 'Chiều rộng (pixels)' },
+    { key: 'Height (pixels)', value: 'Chiều dài (pixels)' },
+    { key: 'Calculate', value: 'Tính toán' },
+    { key: 'SuccessCalculate', value: 'Tính toán thành công' },
+    { key: 'RetryCalculate', value: 'Tính toán lại' },
+    { key: 'PdfToExcel', value: 'Chuyển đổi PDF thành excel' },
+    { key: 'RemovePdf', value: 'Xoá nội dung trong PDF' },
+    { key: 'CalculateDimensions', value: 'tính toán kích thước hình ảnh' },
+    { key: 'ToolPdfToExcel', value: 'Công cụ chuyển đổi PDF thành EXCEL' },
+    { key: 'ToolRemovePdf', value: 'Công cụ xoá nội dung trong PDF' },
+    { key: 'ToolCalculateDimensions', value: 'Công cụ tính toán kích thước hình ảnh' },
+    { key: 'SelectedFiles', value: 'Các tệp đã chọn' },
+    { key: 'FilesNotMatch', value: 'Các tệp không khớp' },
+    { key: 'Reset', value: 'Làm mới' },
+    { key: 'Reset Permission', value: 'Làm mới phân quyền' },
+    { key: 'Calculating', value: 'Đang Tính Toán...' },
+    { key: 'CloseModal', value: 'Đóng Cửa Sổ' },
+    { key: 'HeaderModal', value: 'Thông Tin Sau Khi Tính Toán' },
+    { key: 'ContentModalFail', value: 'Có {{count}} tệp không khớp với thông tin truyền vào, vui lòng xem chi tiết ở cột: Các tệp không khớp.' },
+    { key: 'ContentModalSuccess', value: 'Tất cả tệp đều khớp với thông tin truyền vào, vui lòng Làm mới để tiếp tục.' }
+];

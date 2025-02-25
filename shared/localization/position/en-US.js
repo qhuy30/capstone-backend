@@ -1,0 +1,23 @@
+module.exports =[
+    {key:"UnionChairman",value:"Union Chairman"},
+    {key:"HospitalChiefNursing",value:"Hospital Chief Nursing"},
+    {key:"DepartmentChiefNursing",value:"Department Chief Nursing"},
+    {key:"UnionMembers",value:"Union members"},
+    {key:"Director",value:"Director"},
+    {key:"ChiefMidwives",value:"Chief Midwivest"},
+    {key:"Apprentice",value:"Apprentice"},
+    {key:"ChiefAccountant",value:"Chief accountant"},
+    {key:"Other",value:"Other"},
+    {key:"ChiefTechnician",value:"Chief technician"},
+    {key:"Employee",value:"Employee"},
+    {key:"ViceDirector",value:"Vice director"},
+    {key:"DeputyChiefOfDepartment",value:"Deputy chief of department"},
+    {key:"DeputyHeadOfOffice",value:"Deputy Head of Office"},
+    {key:"Storekeeper",value:"Storekeeper"},
+    {key:"Secterary",value:"Secterary"},
+    {key:"ViceTeamLeader",value:"Vice team leader"},
+    {key:"Leader",value:"Leader"},
+    {key:"UnionLeader",value:"Union leader"},
+    {key:"ChiefOfDepartment",value:"Chief of department"},
+    {key:"HeadOfDepartment",value:"Head of department"}    
+];

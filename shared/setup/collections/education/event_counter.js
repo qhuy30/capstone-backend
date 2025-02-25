@@ -1,0 +1,1 @@
+module.exports = [{ name: 'event_counter', key: [] }];

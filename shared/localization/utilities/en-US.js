@@ -1,0 +1,22 @@
+module.exports = [
+    { key: 'CalculateDimensionsTool', value: 'Tool Conculate Dimensions' },
+    { key: 'Width (pixels)', value: 'Width (pixels)' },
+    { key: 'Height (pixels)', value: 'Height (pixels)' },
+    { key: 'Calculate', value: 'Calculate' },
+    { key: 'SuccessCalculate', value: 'Success Calculate' },
+    { key: 'PdfToExcel', value: 'Convert PDF to Excel' },
+    { key: 'RemovePdf', value: 'Remove context in PDF' },
+    { key: 'CalculateDimensions', value: 'Calculate Dimensions' },
+    { key: 'ToolPdfToExcel', value: 'Tool Convert PDF To Excel' },
+    { key: 'ToolRemovePdf', value: 'Tool Remove Context in PDF' },
+    { key: 'ToolCalculateDimensions', value: 'Tool Calculate Dimensions' },
+    { key: 'SelectedFiles', value: 'Selected Files' },
+    { key: 'FilesNotMatch', value: 'Files Not Match' },
+    { key: 'Reset', value: 'Reset' },
+    { key: 'Reset Permission', value: 'Reset Permission' },
+    { key: 'Calculating', value: 'Calculating...' },
+    { key: 'CloseModal', value: 'Close Modal' },
+    { key: 'HeaderModal', value: 'Information After Calculate' },
+    { key: 'ContentModalFail', value: 'Have {{count}} files not match with information input, please see detail in column: Files Not Match.' },
+    { key: 'ContentModalSuccess', value: 'All files match with information input, please Reset to continue.' }
+];

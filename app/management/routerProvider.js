@@ -1,0 +1,18 @@
+module.exports =[
+    {path:"/management/user",router:require('./user/user.router')},
+    {path:"/management/group",router:require('./group/group.router')},
+    {path:"/management/facebook",router:require('./facebook/facebook.router')},
+    {path:"/management/frontendmap",router:require('./frontendmap/map.router')},
+    {path:"/management/setup",router:require('./services/setup.router')},
+    {path:"/management/system",router:require('./services/system.router')},
+    {path:"/management/menugroup",router:require('./menu/menugroup.router')},
+    {path:"/management/menu",router:require('./menu/menu.router')},
+    {path:"/management/localization",router:require('./localization/localization.router')},
+    {path:"/management/rule",router:require('./rule/rule.router')},
+    {path:"/management/recyclebin",router:require('./recyclebin/recyclebin.router')},
+    { path: "/management/setting", router: require('../management/setting/router') },
+    { path: "/management/directory", router: require('../management/directory/router') },
+    { path: "/management/master_directory", router: require('../management/master_directory/router') },
+    { path: "/management/ringbell_item", router: require('../management/ringbell_item/router') },
+    { path: "/management/config_table", router: require('../management/config_table/config_table.router') },
+];

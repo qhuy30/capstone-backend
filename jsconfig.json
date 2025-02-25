@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@app/*": ["app/*"],
+            "@management/*": ["app/management/*"],
+            "@office/*": ["app/office/*"],
+            "@shared/*": ["shared/*"],
+            "@utils/*": ["utils/*"]
+        }
+    }
+}

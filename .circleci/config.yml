@@ -1,0 +1,413 @@
+version: 2.1
+orbs:
+  vnadev-orb: #vnadev-common/cpc-common@0.0.9 #create vnadev obs
+executors:
+  gcloud:
+    description: Docker container with latest gcloud sdk.
+    docker:
+      - image: google/cloud-sdk:latest
+
+commands:
+  gcp-auth:
+    description: Configure Docker to use gcloud as a credential helper.
+    parameters:
+      gcloud-service-key:
+        description: The gcloud service key in base64 format
+        type: env_var_name
+        default: GCLOUD_SERVICE_KEY
+      google-project-id:
+        description: Environment variable name for the Google project ID to connect with via the gcloud CLI
+        type: env_var_name
+        default: GOOGLE_PROJECT_ID
+      google-compute-zone:
+        description: The Google compute zone to connect with via the gcloud CLI
+        type: env_var_name
+        default: GOOGLE_COMPUTE_ZONE
+      gke-cluster:
+        description: The Google Container Engine Cluster to deploy to.
+        type: string
+    steps:
+      - run:
+          name: Configure Docker for Container Registry
+          command: |
+            echo $<<parameters.gcloud-service-key>> | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
+            gcloud --quiet auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
+            gcloud --quiet config set project $<<parameters.google-project-id>>
+            gcloud --quiet config set compute/zone $<<parameters.google-compute-zone>>
+            gcloud --quiet container clusters get-credentials <<parameters.gke-cluster>> --zone $<<parameters.google-compute-zone>> --project $<<parameters.google-project-id>>
+
+
+jobs:
+######test trigger circle ci #######
+  say-hello:
+    executor: gcloud 
+    steps:
+      - checkout
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+
+#jobs details
+  vnadev-build-push-image:
+    description: >
+      Use gcloud latest sdk container image, and configure. Build and push image to
+      repository. Requires environment variable for GCLOUD_SERVICE_KEY,
+      GOOGLE_PROJECT_ID, GOOGLE_COMPUTE_ZONE set either through context or by
+      passing as params.
+    executor: gcloud
+    parameters:
+      remote-docker-version:
+        description: The circleci remote docker version to use
+        type: string
+        default: 18.09.3
+      gcloud-service-key:
+        description: The gcloud service key in base64 format
+        type: env_var_name
+        default: GCLOUD_SERVICE_KEY
+      google-project-id:
+        description: The Google project ID to connect with via the gcloud CLI
+        type: env_var_name
+        default: GOOGLE_PROJECT_ID
+      gcp-container-registry:
+        description: The Google project ID to store containers in
+        type: env_var_name
+        default: GCP_CONTAINER_REGISTRY
+      google-compute-zone:
+        description: The Google compute zone to connect with via the gcloud CLI
+        type: env_var_name
+        default: GOOGLE_COMPUTE_ZONE
+      artifactory-docker-registry-username:
+        description: Username to log into artifactory
+        type: env_var_name
+        default: ARTIFACTORY_DOCKER_REGISTRY_USERNAME
+      artifactory-docker-registry-password:
+        description: Password to log into artifactory
+        type: env_var_name
+        default: ARTIFACTORY_DOCKER_REGISTRY_PASSWORD
+      artifactory-docker-registry-url:
+        description: URL of artifactory registry
+        type: env_var_name
+        default: ARTIFACTORY_DOCKER_REGISTRY_URL
+      archive-release:
+        description: whether or not to also push image to Artifactory
+        type: boolean
+        default: false
+      gke-cluster:
+        description: The Google Container Engine Cluster to deploy to.
+        type: string
+      registry-url:
+        description: 'The GCR registry URL from ['''', us, eu, asia].gcr.io'
+        type: string
+        default: asia-southeast1-docker.pkg.dev   #gcr.io
+      image:
+        description: workload-name (eg example-svc)
+        type: string
+      tag:
+        description: A docker image tag
+        type: string
+      path-to-dockerfile:
+        description: The relative path to the Dockerfile to use when building image
+        type: string
+        default: .
+      include-source-context:
+        description: Include google debug source context file
+        type: boolean
+        default: true
+      source-context-output-directory:
+        description: Source context output directory
+        type: string
+        default: api
+      web-container-env-label:
+        description: web components need to have env in their tag
+        type: string
+        default: ''
+      image_array:
+        description: >-
+          space-separated array of deployment_name:container_name (e.g
+          (uploads:uploads-hook-api
+          uploads-worker-analyze-image:uploads-worker-analyze-image
+          uploads-worker-delete-image:uploads-worker-delete-image
+          uploads-worker-process-image:uploads-worker-process-image))
+        type: string
+        default: ''
+      cronjob_array:
+        description: 'space-separated array of job_name:container_name'
+        type: string
+        default: ''
+      update-cronjobs:
+        description: update the images used by cronjobs. Will process cronjob_array
+        type: boolean
+        default: false
+      namespace:
+        description: The namespace to deploy application
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: <<parameters.remote-docker-version>>
+          docker_layer_caching: true
+      - gcp-auth:
+          gcloud-service-key: <<parameters.gcloud-service-key>>
+          google-project-id: <<parameters.google-project-id>>
+          google-compute-zone: <<parameters.google-compute-zone>>
+          gke-cluster: <<parameters.gke-cluster>>
+      - when:
+          condition: <<parameters.include-source-context>>
+          steps:
+            - run:
+                name: Add source context to build
+                command: >
+                  echo "hello"
+      #gcloud debug source gen-repo-info-file --output-directory
+      #<<parameters.source-context-output-directory>>
+      # - run:
+      #     name: Define Service Image
+      #     command: >
+      #       echo
+      #       'service-name:[<<parameters.registry-url>>/$<<parameters.gcp-container-registry>>/vnadev-common/<<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>]'
+      - run:
+          name: Build Docker Image
+          command: >
+            echo 'service-name to use to build
+            docker:[<<parameters.registry-url>>/$<<parameters.gcp-container-registry>>/vnadev-common/<<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>]'
+
+            RELEASE_VERSION=${CIRCLE_TAG}
+
+            echo 'RELEASE_VERSION=${RELEASE_VERSION}'
+
+            docker build --load -t <<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>> <<parameters.path-to-dockerfile>> 
+
+
+            echo 'tagging <<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>
+            to <<parameters.registry-url>>/$<<parameters.gcp-container-registry>>/vnadev-common/<<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>'
+
+            docker tag <<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>
+            <<parameters.registry-url>>/$<<parameters.gcp-container-registry>>/vnadev-common/<<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>
+      - run:
+          name: Push Docker Image
+          command: >
+            echo 'service-name to use to push
+            docker:[<<parameters.registry-url>>/$<<parameters.gcp-container-registry>>/vnadev-common/<<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>]'
+            
+            cat ${HOME}/gcloud-service-key.json | docker login -u _json_key --password-stdin https://asia-southeast1-docker.pkg.dev
+            
+            docker push <<parameters.registry-url>>/$<<parameters.gcp-container-registry>>/vnadev-common/<<parameters.image>>:<<parameters.tag>>
+  vnadev-deployment:
+    description: >
+      Use gcloud latest sdk container image, and configure. Build and push image to
+      repository. Requires environment variable for GCLOUD_SERVICE_KEY,
+      GOOGLE_PROJECT_ID, GOOGLE_COMPUTE_ZONE set either through context or by
+      passing as params.
+    executor: gcloud
+    parameters:
+      remote-docker-version:
+        description: The circleci remote docker version to use
+        type: string
+        default: 18.09.3
+      gcloud-service-key:
+        description: The gcloud service key in base64 format
+        type: env_var_name
+        default: GCLOUD_SERVICE_KEY
+      google-project-id:
+        description: The Google project ID to connect with via the gcloud CLI
+        type: env_var_name
+        default: GOOGLE_PROJECT_ID
+      gcp-container-registry:
+        description: The Google project ID to store containers in
+        type: env_var_name
+        default: GCP_CONTAINER_REGISTRY
+      google-compute-zone:
+        description: The Google compute zone to connect with via the gcloud CLI
+        type: env_var_name
+        default: GOOGLE_COMPUTE_ZONE
+      artifactory-docker-registry-username:
+        description: Username to log into artifactory
+        type: env_var_name
+        default: ARTIFACTORY_DOCKER_REGISTRY_USERNAME
+      artifactory-docker-registry-password:
+        description: Password to log into artifactory
+        type: env_var_name
+        default: ARTIFACTORY_DOCKER_REGISTRY_PASSWORD
+      artifactory-docker-registry-url:
+        description: URL of artifactory registry
+        type: env_var_name
+        default: ARTIFACTORY_DOCKER_REGISTRY_URL
+      archive-release:
+        description: whether or not to also push image to Artifactory
+        type: boolean
+        default: false
+      gke-cluster:
+        description: The Google Container Engine Cluster to deploy to.
+        type: string
+      registry-url:
+        description: 'The GCR registry URL from ['''', us, eu, asia].gcr.io'
+        type: string
+        default: asia-southeast1-docker.pkg.dev
+      image:
+        description: A name for your docker image (eg example-svc)
+        type: string
+      tag:
+        description: A docker image tag
+        type: string
+      path-to-dockerfile:
+        description: The relative path to the Dockerfile to use when building image
+        type: string
+        default: .
+      include-source-context:
+        description: Include google debug source context file
+        type: boolean
+        default: true
+      source-context-output-directory:
+        description: Source context output directory
+        type: string
+        default: api
+      web-container-env-label:
+        description: web components need to have env in their tag
+        type: string
+        default: ''
+      image_array:
+        description: >-
+          space-separated array of deployment_name:container_name (e.g
+          (uploads:uploads-hook-api
+          uploads-worker-analyze-image:uploads-worker-analyze-image
+          uploads-worker-delete-image:uploads-worker-delete-image
+          uploads-worker-process-image:uploads-worker-process-image))
+        type: string
+        default: ''
+      cronjob_array:
+        description: 'space-separated array of job_name:container_name'
+        type: string
+        default: ''
+      update-cronjobs:
+        description: update the images used by cronjobs. Will process cronjob_array
+        type: boolean
+        default: false
+      namespace:
+        description: The namespace to deploy application
+        type: string
+      k8s-context:
+        description: context used for kubectl
+        type: string
+        default: ''
+      deploy-to-cluster:
+        description: Deploy built container to cluster
+        type: boolean
+        default: false
+      run-migrations:
+        description: Deploy job migrations if value is true.
+        type: boolean
+        default: false
+      path-to-manifests:
+        description: The relative path to the manifest file or folder (eg; deployment)
+        type: string
+        default: ./deployment
+      path-to-migrations-manifest:
+        description: The relative path to Jobs file or folder.
+        type: string
+        default: jobs/jobs.yaml
+      db-instance:
+        description: The postgres db instance to use.
+        type: string
+        default: ''
+    steps:
+      - gcp-auth:
+          gcloud-service-key: <<parameters.gcloud-service-key>>
+          google-project-id: <<parameters.google-project-id>>
+          google-compute-zone: <<parameters.google-compute-zone>>
+          gke-cluster: <<parameters.gke-cluster>>
+      - when:
+          condition: <<parameters.deploy-to-cluster>>
+          steps:
+            - run:
+                name: Prepare Service for Deployment
+                command: |
+                  kubectl config set-context <<parameters.k8s-context>> --namespace=<<parameters.namespace>>
+                  kubectl config use-context <<parameters.k8s-context>>
+
+                  CONFIG_PAIR_ARRAY=<<parameters.image_array>>
+                  for CONFIG_PAIR in "${CONFIG_PAIR_ARRAY[@]}"; do
+                    config_pair=(${CONFIG_PAIR//:/ })
+                    deployment_name=${config_pair[0]}
+                    container_name=${config_pair[1]}
+                    kubectl set image deployments/$deployment_name $container_name=<<parameters.registry-url>>/$<<parameters.gcp-container-registry>>/vnadev-common/<<parameters.image>>:<<parameters.tag>><<parameters.web-container-env-label>>
+                  done
+
+                  for CONFIG_PAIR in "${CONFIG_PAIR_ARRAY[@]}"; do
+                    config_pair=(${CONFIG_PAIR//:/ })
+                    deployment_name=${config_pair[0]}
+                    container_name=${config_pair[1]}
+                    kubectl rollout status deployments $deployment_name -n=<<parameters.namespace>> --context <<parameters.k8s-context>>
+                  done  
+
+workflows:
+  version: 2
+  deployments:
+    jobs:
+
+############# Deploy on QA environment#########
+      - vnadev-build-push-image:
+          name: build-image-push-QA
+          context: vnadev-qa
+          gke-cluster: vnadev-gcp-gke-qa
+          path-to-dockerfile: " -f ./Dockerfile ."
+          image: vnadev-tenant-be
+          tag: $CIRCLE_TAG
+          namespace: vnadev-qa
+          web-container-env-label: ''
+          archive-release: False
+          filters:
+            tags:
+              only: /qa_.+/
+            branches:
+              ignore: /.*/
+      - vnadev-deployment:
+          name: deploy-to-GCP-QA
+          context: vnadev-qa
+          gke-cluster: vnadev-gcp-gke-qa
+          image: vnadev-tenant-be
+          image_array: (vnadev-tenant-be:vnadev-tenant-be)
+          tag: $CIRCLE_TAG
+          k8s-context: gke_vnadev-gcp-qa_us-central1-c_vnadev-gcp-gke-qa
+          namespace: vnadev-qa
+          deploy-to-cluster: true
+          filters:
+            tags:
+              only: /qa_.+/ 
+            branches:
+              ignore: /.*/
+          requires:
+            - build-image-push-QA
+
+############# Deploy on PROD environment#########
+      - vnadev-build-push-image:
+          name: build-image-push-PROD
+          context: vnadev-prod
+          gke-cluster: vnadev-gcp-gke-prod
+          path-to-dockerfile: " -f ./Dockerfile ."
+          image: vnadev-tenant-be
+          tag: $CIRCLE_TAG
+          namespace: vnadev-prod
+          web-container-env-label: ''
+          archive-release: False
+          filters:
+            tags:
+              only: /prod_.+/
+            branches:
+              ignore: /.*/
+      - vnadev-deployment:
+          name: deploy-to-GCP-PROD
+          context: vnadev-prod
+          gke-cluster: vnadev-gcp-gke-prod
+          image: vnadev-tenant-be
+          image_array: (vnadev-tenant-be:vnadev-tenant-be)
+          tag: $CIRCLE_TAG
+          k8s-context: gke_vnadev-gcp-prod_asia-southeast1-b_vnadev-gcp-gke-prod
+          namespace: vnadev-prod
+          deploy-to-cluster: true
+          filters:
+            tags:
+              only: /prod_.+/ 
+            branches:
+              ignore: /.*/
+          requires:
+            - build-image-push-PROD
