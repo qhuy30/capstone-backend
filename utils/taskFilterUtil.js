@@ -1023,6 +1023,733 @@ function prepareDoSort(aggregationSteps = [], queryCriteria) {
     }
 }
 
+function addDepartmentFields(aggregationSteps = []) {
+    // Xử lý department
+    aggregationSteps.push({
+        $lookup: {
+            from: "organization",
+            localField: "userInfo.department",
+            foreignField: "id",
+            as: "department_info"
+        }
+    });
+
+    aggregationSteps.push({
+        $addFields: {
+            department_title: {
+                $ifNull: [{ $arrayElemAt: ["$department_info.title", 0] }, false]
+            }
+        }
+    });
+
+    aggregationSteps.push({
+        $lookup: {
+            from: "organization",
+            localField: "to_department",
+            foreignField: "id",
+            as: "to_department_info"
+        }
+    });
+
+    aggregationSteps.push({
+        $addFields: {
+            to_department_title: {
+                $ifNull: [{ $arrayElemAt: ["$to_department_info.title", 0] }, false]
+            }
+        }
+    });
+
+    // Xử lý to_department
+    // aggregationSteps.push({
+    //     $addFields: {
+    //         to_department_ids: {
+    //             $map: {
+    //                 input: "$to_department",
+    //                 as: "dept",
+    //                 in: { $toString: "$$dept" }
+    //             }
+    //         }
+    //     }
+    // });
+
+    // aggregationSteps.push({
+    //     $lookup: {
+    //         from: "organization",
+    //         localField: "to_department_ids",
+    //         foreignField: "id",
+    //         as: "to_department_info"
+    //     }
+    // });
+
+    // aggregationSteps.push({
+    //     $addFields: {
+    //         to_department_titles: {
+    //             $map: {
+    //                 input: "$to_department_ids",
+    //                 as: "dept_id",
+    //                 in: {
+    //                     $let: {
+    //                         vars: {
+    //                             matched_dept: {
+    //                                 $arrayElemAt: [
+    //                                     {
+    //                                         $filter: {
+    //                                             input: "$to_department_info",
+    //                                             cond: { $eq: ["$$this.id", "$$dept_id"] }
+    //                                         }
+    //                                     },
+    //                                     0
+    //                                 ]
+    //                             }
+    //                         },
+    //                         in: { $ifNull: ["$$matched_dept.title", false] }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // });
+
+    // Loại bỏ các trường tạm thời
+    aggregationSteps.push({
+        $project: {
+            department_info: 0,
+            to_department_info: 0,
+            to_department_ids: 0
+        }
+    });
+}
+
+function prepareAddFieldCount(conditions = []){
+    conditions.push({
+        $addFields: {
+            participants: {
+                $reduce: {
+                    input: [
+                        { field: "$main_person", role: "main_person" },
+                        { field: "$participant", role: "participant" },
+                        { field: "$observer", role: "observer" }
+                    ],
+                    initialValue: [],
+                    in: {
+                        $concatArrays: [
+                            "$$value",
+                            {
+                                $cond: {
+                                    if: {
+                                        $and: [
+                                            { $ne: ["$$this.field", null] },
+                                            { $ne: ["$$this.field", []] },
+                                            { $ne: ["$$this.field", ""] }
+                                        ]
+                                    },
+                                    then: {
+                                        $cond: {
+                                            if: { $isArray: "$$this.field" },
+                                            then: {
+                                                $map: {
+                                                    input: "$$this.field",
+                                                    as: "user",
+                                                    in: { username: "$$user", role: "$$this.role" }
+                                                }
+                                            },
+                                            else: [{ username: "$$this.field", role: "$$this.role" }]
+                                        }
+                                    },
+                                    else: []
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    });
+
+    conditions.push({ $unwind: "$participants" });
+    
+    conditions.push({
+        $group: {
+            _id: { taskId: "$_id", username: "$participants.username" },
+            roles: { $addToSet: "$participants.role" },
+            taskData: { $first: "$$ROOT" }
+        }
+    });
+
+    conditions.push({
+        $replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    "$taskData",
+                    {
+                        participants: {
+                            username: "$_id.username",
+                            role: "$roles"
+                        }
+                    }
+                ]
+            }
+        }
+    });
+
+    conditions.push({
+        $lookup: {
+            from: "user",
+            localField: "participants.username",
+            foreignField: "username",
+            as: "userInfo"
+        }
+    });
+
+    conditions.push({
+        $addFields: {
+            userInfo: { $arrayElemAt: ["$userInfo", 0] }
+        }
+    });
+
+    return conditions;
+}
+
+function prepareSelect(conditions = []){
+    conditions.push({
+        $project: {
+            title: 1,
+            code: 1,
+            titleName: "$userInfo.title",
+            username: "$participants.username",
+            roles: "$participants.role",
+            department: "$userInfo.department",
+            projectTitle: "$projectInfo.title",
+            labelTitles: "$labels",
+            from_date: 1,
+            to_date: 1,
+            estimate: 1,
+            worktimes: 1,
+            date_completed: 1,
+            state: 1,
+            status: 1,
+            to_department_titles: 1,
+            department_title: 1,
+        }
+    });
+    return conditions;
+}
+
+function prepareStatisticTaskPerson(aggregationSteps = [], username) {
+    
+    aggregationSteps.push({
+        $addFields: {
+            main_person: {
+                $cond: [
+                    { $isArray: "$main_person" },
+                    "$main_person",
+                    { $ifNull: [["$main_person"], []] }
+                ],
+            },
+            participant: {
+                $cond: [
+                    { $isArray: "$participant" },
+                    "$participant",
+                    { $ifNull: [["$participant"], []] }
+                ],
+            },
+            observer: {
+                $cond: [
+                    { $isArray: "$observer" },
+                    "$observer",
+                    { $ifNull: [["$observer"], []] }
+                ],
+            },
+        },
+    });
+
+    aggregationSteps.push({
+        $match: {
+            $or: [
+                { "main_person": username },
+                { "participant": username },
+                { "observer": username }
+            ],
+            status: { $ne: TASK_STATUS.CANCELLED },
+        },
+    });
+
+    aggregationSteps.push({
+        $project: {
+            role_data: {
+                main_person: "$main_person",
+                participant: "$participant",
+                observer: "$observer",
+                estimate: {
+                    $cond: [
+                        { $or: [{ $eq: ["$estimate", null] }, { $eq: ["$estimate", NaN] }] },
+                        0,        
+                        "$estimate"
+                    ],
+                },
+                worktimes: {
+                    $cond: [
+                        { $or: [{ $eq: ["$worktimes", null] }, { $eq: ["$worktimes", NaN] }] },
+                        0,        
+                        "$worktimes"
+                    ],
+            },
+                status: "$status",
+                from_date: "$from_date",
+            },
+        },
+    });
+
+    aggregationSteps.push({
+        $group: {
+            _id: null,
+            total_main_tasks: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.main_person"] },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            completed_main_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.main_person"] },
+                                { $eq: ["$role_data.status", TASK_STATUS.COMPLETED] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            not_completed_main_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.main_person"] },
+                                { $ne: ["$role_data.status", TASK_STATUS.COMPLETED] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            processing_main_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.main_person"] },
+                                { $eq: ["$role_data.status", TASK_STATUS.PROCESSING] },
+                                { $ne: ["$role_data.from_date", null] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            total_main_estimate: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.main_person"] },
+                        "$role_data.estimate",
+                        0,
+                    ],
+                },
+            },
+            total_main_worktimes: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.main_person"] },
+                        "$role_data.worktimes",
+                        0,
+                    ],
+                },
+            },
+
+            total_participant_tasks: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.participant"] },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            completed_participant_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.participant"] },
+                                { $eq: ["$role_data.status", TASK_STATUS.COMPLETED] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            not_completed_participant_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.participant"] },
+                                { $ne: ["$role_data.status", TASK_STATUS.COMPLETED] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            processing_participant_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.participant"] },
+                                { $eq: ["$role_data.status", TASK_STATUS.PROCESSING] },
+                                { $ne: ["$role_data.from_date", null] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            total_participant_estimate: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.participant"] },
+                        "$role_data.estimate",
+                        0,
+                    ],
+                },
+            },
+            total_participant_worktimes: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.participant"] },
+                        "$role_data.worktimes",
+                        0,
+                    ],
+                },
+            },
+
+            total_observer_tasks: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.observer"] },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            completed_observer_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.observer"] },
+                                { $eq: ["$role_data.status", TASK_STATUS.COMPLETED] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            not_completed_observer_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.observer"] },
+                                { $ne: ["$role_data.status", TASK_STATUS.COMPLETED] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            processing_observer_tasks: {
+                $sum: {
+                    $cond: [
+                        {
+                            $and: [
+                                { $in: [username, "$role_data.observer"] },
+                                { $eq: ["$role_data.status", TASK_STATUS.PROCESSING] },
+                                { $ne: ["$role_data.from_date", null] },
+                            ],
+                        },
+                        1,
+                        0,
+                    ],
+                },
+            },
+            total_observer_estimate: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.observer"] },
+                        "$role_data.estimate",
+                        0,
+                    ],
+                },
+            },
+            total_observer_worktimes: {
+                $sum: {
+                    $cond: [
+                        { $in: [username, "$role_data.observer"] },
+                        "$role_data.worktimes",
+                        0,
+                    ],
+                },
+            },
+        },
+    });
+
+    aggregationSteps.push({
+        $project: {
+            result: [
+                {
+                    key: "main_person",
+                    totalTasks: "$total_main_tasks",
+                    completedTasks: "$completed_main_tasks",
+                    notCompletedTasks: "$not_completed_main_tasks",
+                    processingTasks: "$processing_main_tasks",
+                    totalEstimate: "$total_main_estimate",
+                    totalWorktimes: "$total_main_worktimes",
+                },
+                {
+                    key: "participant",
+                    totalTasks: "$total_participant_tasks",
+                    completedTasks: "$completed_participant_tasks",
+                    notCompletedTasks: "$not_completed_participant_tasks",
+                    processingTasks: "$processing_participant_tasks",
+                    totalEstimate: "$total_participant_estimate",
+                    totalWorktimes: "$total_participant_worktimes",
+                },
+                {
+                    key: "observer",
+                    totalTasks: "$total_observer_tasks",
+                    completedTasks: "$completed_observer_tasks",
+                    notCompletedTasks: "$not_completed_observer_tasks",
+                    processingTasks: "$processing_observer_tasks",
+                    totalEstimate: "$total_observer_estimate",
+                    totalWorktimes: "$total_observer_worktimes",
+                },
+            ],
+        },
+    });
+
+    aggregationSteps.push({
+        $unset: ["_id"],
+    });
+
+}
+
+function prepareAddField(conditions = []) {
+    conditions.push({
+        $addFields: {
+            participants: {
+                $reduce: {
+                    input: [
+                        { field: "$main_person", role: "main_person" },
+                        { field: "$participant", role: "participant" },
+                        { field: "$observer", role: "observer" }
+                    ],
+                    initialValue: [],
+                    in: {
+                        $concatArrays: [
+                            "$$value",
+                            {
+                                $cond: {
+                                    if: {
+                                        $and: [
+                                            { $ne: ["$$this.field", null] },
+                                            { $ne: ["$$this.field", []] },
+                                            { $ne: ["$$this.field", ""] }
+                                        ]
+                                    },
+                                    then: {
+                                        $cond: {
+                                            if: { $isArray: "$$this.field" },
+                                            then: {
+                                                $map: {
+                                                    input: "$$this.field",
+                                                    as: "user",
+                                                    in: { username: "$$user", role: "$$this.role" }
+                                                }
+                                            },
+                                            else: [{ username: "$$this.field", role: "$$this.role" }]
+                                        }
+                                    },
+                                    else: []
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    });
+
+    conditions.push({ $unwind: "$participants" });
+
+    conditions.push({
+        $group: {
+            _id: { taskId: "$_id", username: "$participants.username" },
+            roles: { $addToSet: "$participants.role" },
+            taskData: { $first: "$$ROOT" }
+        }
+    });
+
+    conditions.push({
+        $replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    "$taskData",
+                    {
+                        participants: {
+                            username: "$_id.username",
+                            role: "$roles"
+                        }
+                    }
+                ]
+            }
+        }
+    });
+
+    conditions.push({
+        $lookup: {
+            from: "user",
+            localField: "participants.username",
+            foreignField: "username",
+            as: "userInfo"
+        }
+    });
+
+    conditions.push({
+        $addFields: {
+            userInfo: { $arrayElemAt: ["$userInfo", 0] }
+        }
+    });
+
+    conditions.push({
+        $addFields: {
+            projectObjectId: { $toObjectId: "$project" }
+        }
+    });
+
+    conditions.push({
+        $lookup: {
+            from: "project",
+            localField: "projectObjectId",
+            foreignField: "_id",
+            as: "projectInfo"
+        }
+    });
+
+    conditions.push({
+        $addFields: {
+            projectInfo: { $arrayElemAt: ["$projectInfo", 0] }
+        }
+    });
+
+    conditions.push({
+        $addFields: {
+            labelIds: {
+                $map: {
+                    input: "$label",
+                    as: "labelJ",
+                    in: { $toObjectId: "$$labelJ" }
+                }
+            }
+        }
+    });
+
+    conditions.push({
+        $lookup: {
+            from: "label",
+            localField: "labelIds",
+            foreignField: "_id",
+            as: "labels"
+        }
+    });
+
+    conditions.push({
+        $sort: {
+            "participants.username": 1, 
+            "participants.role": 1,
+            "from_date": 1
+        }
+    });
+
+    return conditions;
+}
+
+function prepareStatisticTaskCompletedFilter(aggregationSteps = [], { body }) {
+    const conditions = [];
+    exports.generateFromDateRangeFilter(conditions, body.from_date, body.to_date);
+    exports.generateFilterStatisticTaskCompleted(conditions, body.employee, body.department);
+    exports.generateStatusFilterForStatisticTaskCompleted(conditions);
+    aggregationSteps.push({ $match: { $and: conditions } });
+}
+
+function prepareStatisticTaskUncompletedFilter(aggregationSteps = [], { body }) {
+    const conditions = [];
+    exports.generateFromDateRangeFilter(conditions, body.from_date, body.to_date);
+    exports.generateFilterStatisticTaskCompleted(conditions, body.employee, body.department);
+    exports.generateStatusFilterForStatisticTaskUncompleted(conditions);
+    aggregationSteps.push({ $match: { $and: conditions } });
+}
+
+exports.generateFromDateRangeFilter = function (condition = [], fromDate, toDate) {
+    if (fromDate && toDate) {
+        condition.push({
+            $or: [
+                { from_date: { $gte: fromDate, $lte: toDate } },
+                { from_date: null }
+            ]
+        });
+    }
+};
+
+exports.generateFilterStatisticTaskCompleted = function (conditions = [], employee, department) {
+    if(Array.isArray(department) && department.length > 0) {
+        conditions.push({
+            "userInfo.department": { $in: department }
+        });
+    }
+    if(Array.isArray(employee) && employee.length > 0) {
+        conditions.push({
+            "participants.username": { $in: employee }
+    });
+    }
+};
+
+exports.generateStatusFilterForStatisticTaskCompleted = function (conditions = []) {
+    conditions.push({
+        status: TASK_STATUS.COMPLETED
+    });
+};
+
+exports.generateStatusFilterForStatisticTaskUncompleted = function (conditions = []) {
+    conditions.push({
+        status: { $nin: [TASK_STATUS.COMPLETED, TASK_STATUS.CANCELLED] }
+    });
+};
+
 exports.buildLoadBaseDepartmentAggregation = function (body, check) {
     const aggregationSteps = [];
     prepareSearch(aggregationSteps, { body });
@@ -1205,5 +1932,63 @@ exports.buildStatisticPersonalGrowthAggregation = function (body) {
     prepareTaskPersonalFilter(aggregationSteps, { body });
     prepareStatisticPersonalTabFilter(aggregationSteps, { body });
     prepareStatisticGrowth(aggregationSteps);
+    return aggregationSteps;
+};
+
+exports.buildStatisticTasksPersonalAggregation = function (body) {
+    const aggregationSteps = [];
+    // prepareStatisticTaskPersonFilter(aggregationSteps, {body});
+    prepareStatisticTaskPerson(aggregationSteps, body.username);
+    return aggregationSteps;
+};
+
+exports.buildLoadStatisticTaskCompleted = function (body) {
+    const aggregationSteps = [];
+    prepareSearch(aggregationSteps, { body }); 
+    prepareTaskState(aggregationSteps);
+    prepareAddField(aggregationSteps);
+    prepareStatisticTaskCompletedFilter(aggregationSteps, { body });
+    prepareSelect(aggregationSteps);
+    preparePagination(aggregationSteps, { body });
+    return aggregationSteps;
+};
+
+exports.buildCountStatisticTaskCompleted = function (body) {
+    const aggregationSteps = [];
+    prepareAddFieldCount(aggregationSteps);
+    prepareStatisticTaskCompletedFilter(aggregationSteps, { body });
+    prepareCount(aggregationSteps);
+    return aggregationSteps;
+};
+
+exports.buildLoadStatisticTaskUncompleted = function (body) {
+    const aggregationSteps = [];
+    prepareSearch(aggregationSteps, { body }); 
+    prepareTaskState(aggregationSteps);
+    prepareAddField(aggregationSteps);
+    addDepartmentFields(aggregationSteps);
+    prepareStatisticTaskUncompletedFilter(aggregationSteps, { body });
+    prepareSelect(aggregationSteps);
+    preparePagination(aggregationSteps, { body });
+    return aggregationSteps;
+};
+
+exports.buildCountStatisticTaskUncompleted = function (body) {
+    const aggregationSteps = [];
+    prepareAddFieldCount(aggregationSteps);
+    prepareStatisticTaskUncompletedFilter(aggregationSteps, { body });
+    prepareCount(aggregationSteps);
+    return aggregationSteps;
+};
+
+exports.buildExportStatisticTaskCompleted = function (body) {
+    const aggregationSteps = [];
+    prepareSearch(aggregationSteps, { body }); 
+    prepareTaskState(aggregationSteps);
+    prepareAddField(aggregationSteps);
+    addDepartmentFields(aggregationSteps);
+    prepareStatisticTaskCompletedFilter(aggregationSteps, { body });
+    prepareSelect(aggregationSteps);
+    preparePagination(aggregationSteps, { body });
     return aggregationSteps;
 };
