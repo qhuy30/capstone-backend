@@ -102,6 +102,28 @@ router.post('/changelanguage',MultiTenant.match(), SessionProvider.match, valida
         });
     }
 }));
+
+router.post('/changelanguage-mobile',MultiTenant.match(), SessionProvider.match, validation.changeLanguageMobile, Router.trycatchFunction("post/management/user/changelanguage", function (req, res) {
+    return function () {
+        UserController.changeLanguageMobile(req.body).then(function (data) {
+            res.send({ status: data });
+            res.end();
+            data = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        }, function (err) {
+            res.status(statusHTTP.internalServer);
+            Router.LogAndMessage(res,"post/management/user/changelanguage-mobile",err);
+            res.end();
+            err = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        });
+    }
+}));
+
 router.post('/loaddetails',MultiTenant.match(), PermissionProvider.check(["Management.User.Use"]), validation.loadDetails, Router.trycatchFunction("post/management/user/loaddetails", function (req, res) {
     return function () {
         UserController.loadDetails(req.body).then(function (data) {
@@ -345,6 +367,27 @@ router.post('/register',MultiTenant.match(), PermissionProvider.check(["Manageme
         }, function (err) {
             res.status(statusHTTP.internalServer);
             Router.LogAndMessage(res,"post/management/user/register",err);
+            res.end();
+            err = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        });
+    }
+}));
+
+router.post('/sub_register',MultiTenant.match(), validation.sub_register, Router.trycatchFunction("post/management/user/sub_register", function (req, res) {
+    return function () {
+        UserController.sub_insert(req.body).then(function (data) {
+            res.send({ status: data });
+            res.end();
+            data = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        }, function (err) {
+            res.status(statusHTTP.internalServer);
+            Router.LogAndMessage(res,"post/management/user/sub_register",err);
             res.end();
             err = undefined;
             res = undefined;

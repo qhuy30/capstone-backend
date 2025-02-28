@@ -2,14 +2,18 @@ const Q = require("q");
 
 const { LabelService } = require("./service");
 const { BuildFilterAggregate } = require("./utility");
+const { checkRuleCheckBox } = require("@utils/ruleUtils");
 
-const LABEL_INSERT_PARENT_LABEL = "Office.Task.Management_MinorLabels_Department";
+const LABEL_INSERT_PARENT_LABEL = "Office.Task.Management_MajorLabels_Department";
 const LABEL_INSERT_CHILD_LABEL = "Office.Task.Management_MinorLabels_Department";
 
 function checkInsertPermission(session) {
     return {
-        parent: checkDetailPermission(session, LABEL_INSERT_PARENT_LABEL),
-        child: checkDetailPermission(session, LABEL_INSERT_CHILD_LABEL),
+        parent: {
+            check: checkRuleCheckBox(LABEL_INSERT_PARENT_LABEL, session),
+            department: []
+        },
+        // child: checkDetailPermission(session, LABEL_INSERT_CHILD_LABEL),
     };
 }
 

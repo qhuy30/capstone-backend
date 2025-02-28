@@ -85,6 +85,7 @@ exports.EVENT_CALENDAR_UI_CHILD_TAB = {
     MY_DEPARTMENT_CALENDAR: "my_department_calendar",
     MY_DIRECTOR_CALENDAR: "my_director_calendar",
     MY_EMPLOYEE_CALENDAR: "my_employee",
+    WHOLE_SCHOOL_CALENDAR: "whole_school",
 }
 
 exports.EVENT_FEATURE_NAME = "event_calendar";

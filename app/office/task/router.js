@@ -7,6 +7,175 @@ const { statusHTTP } = require('../../../utils/setting');
 const { Router } = require('../../../shared/router/router.provider');
 const { MultiTenant } = require('../../../shared/multi_tenant/provider');
 
+router.post(
+    "/load_statistic_task_completed",
+    MultiTenant.match({ module_key: ["office"] }),
+    PermissionProvider.check(["Office.Task.Use"]),
+    validation.load_statistic_task,
+    Router.trycatchFunction("post/office/task/load_statistic_task_completed", function (req, res) {
+        return function () {
+            TaskController.load_statistic_task_completed(req.body).then(
+                function (data) {
+                    res.send(data);
+                    res.end();
+                    data = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+                function (err) {
+                    res.status(statusHTTP.internalServer);
+                    Router.LogAndMessage(res, "post/office/task/load_statistic_task_completed", err);
+                    res.end();
+                    err = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+            );
+        };
+    }),
+);
+
+router.post(
+    "/count_statistic_task_completed",
+    MultiTenant.match({ module_key: ["office"] }),
+    PermissionProvider.check(["Office.Task.Use"]),
+    validation.count_statistic_task,
+    Router.trycatchFunction("post/office/task/count_statistic_task_completed", function (req, res) {
+        return function () {
+            TaskController.count_statistic_task_completed(req.body).then(
+                function (data) {
+                    res.send(data);
+                    res.end();
+                    data = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+                function (err) {
+                    res.status(statusHTTP.internalServer);
+                    Router.LogAndMessage(res, "post/office/task/count_statistic_task_completed", err);
+                    res.end();
+                    err = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+            );
+        };
+    }),
+);
+
+router.post(
+    "/load_statistic_task_uncompleted",
+    MultiTenant.match({ module_key: ["office"] }),
+    PermissionProvider.check(["Office.Task.Use"]),
+    validation.load_statistic_task,
+    Router.trycatchFunction("post/office/task/load_statistic_task_uncompleted", function (req, res) {
+        return function () {
+            TaskController.load_statistic_task_uncompleted(req.body).then(
+                function (data) {
+                    res.send(data);
+                    res.end();
+                    data = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+                function (err) {
+                    res.status(statusHTTP.internalServer);
+                    Router.LogAndMessage(res, "post/office/task/load_statistic_task_uncompleted", err);
+                    res.end();
+                    err = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+            );
+        };
+    }),
+);
+
+router.post(
+    "/count_statistic_task_uncompleted",
+    MultiTenant.match({ module_key: ["office"] }),
+    PermissionProvider.check(["Office.Task.Use"]),
+    validation.count_statistic_task,
+    Router.trycatchFunction("post/office/task/count_statistic_task_uncompleted", function (req, res) {
+        return function () {
+            TaskController.count_statistic_task_uncompleted(req.body).then(
+                function (data) {
+                    res.send(data);
+                    res.end();
+                    data = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+                function (err) {
+                    res.status(statusHTTP.internalServer);
+                    Router.LogAndMessage(res, "post/office/task/count_statistic_task_completed", err);
+                    res.end();
+                    err = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+            );
+        };
+    }),
+);
+
+router.post(
+    "/export_statistic_task_completed",
+    MultiTenant.match({ module_key: ["office"] }),
+    PermissionProvider.check(["Office.Task.Use"]),
+    validation.export_statistic_task_completed,
+    Router.trycatchFunction("post/office/task/export_statistic_task_completed", function (req, res) {
+        return function () {
+            TaskController.export_statistic_task_completed(req.body).then(
+                function (data) {
+                    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                    res.setHeader('Content-Disposition', 'attachment; filename="Task_completed.xlsx"');
+                    res.send(data);
+                    res.end();
+                    data = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+                function (err) {
+                    res.status(statusHTTP.internalServer);
+                    Router.LogAndMessage(res, "post/office/task/export_statistic_task_completed", err);
+                    res.end();
+                    err = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+            );
+        };
+    }),
+);
+
+router.post(
+    "/statistic_tasks_person",
+    MultiTenant.match({ module_key: ["office"] }),
+    PermissionProvider.check(["Office.Task.Use"]),
+    Router.trycatchFunction("post/office/task/statistic_tasks_person", function (req, res) {
+        return function () {
+            TaskController.statistic_tasks_person(req.body).then(
+                function (data) {
+                    res.send(data);
+                    res.end();
+                    data = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+                function (err) {
+                    res.status(statusHTTP.internalServer);
+                    Router.LogAndMessage(res, "post/office/task/statistic_tasks_person", err);
+                    res.end();
+                    err = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+            );
+        };
+    }),
+);
+
 router.post('/load_employee', MultiTenant.match({ module_key: ["office"] }), PermissionProvider.check(["Office.Task.Use"]), validation.loadEmployee, Router.trycatchFunction("post/office/task/load_employee", function (req, res) {
     return function () {
         TaskController.loadEmployee(req.body).then(function (data) {
@@ -1823,5 +1992,78 @@ router.post(
         };
     }),
 );
+
+router.post('/load_employee_no_task',MultiTenant.match(), PermissionProvider.check(["Office.Task.Use"]), validation.load_employee_no_task, Router.trycatchFunction("post/management/user/load_employee_no_task", function (req, res) {
+    return function () {
+        TaskController.load_employee_no_task(req.body).then(function (data) {
+            res.send(data);
+            res.end();
+            data = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        }, function (err) {
+            res.status(statusHTTP.internalServer);
+            Router.LogAndMessage(res,"post/management/user/load_employee_no_task",err);
+            res.end();
+            err = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        });
+    }
+}));
+
+router.post('/count_employee_no_task',MultiTenant.match(), PermissionProvider.check(["Office.Task.Use"]), validation.load_employee_no_task, Router.trycatchFunction("post/management/user/count_employee_no_task", function (req, res) {
+    return function () {
+        TaskController.count_employee_no_task(req.body).then(function (data) {
+            res.send(data);
+            res.end();
+            data = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        }, function (err) {
+            res.status(statusHTTP.internalServer);
+            Router.LogAndMessage(res,"post/management/user/count_employee_no_task",err);
+            res.end();
+            err = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        });
+    }
+}));
+
+router.post(
+    "/export_statistic_task_uncompleted",
+    MultiTenant.match({ module_key: ["office"] }),
+    PermissionProvider.check(["Office.Task.Use"]),
+    validation.export_statistic_task_uncompleted,
+    Router.trycatchFunction("post/office/task/export_statistic_task_uncompleted", function (req, res) {
+        return function () {
+            TaskController.export_statistic_task_uncompleted(req.body).then(
+                function (data) {
+                    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                    res.setHeader('Content-Disposition', 'attachment; filename="Task_uncompleted.xlsx"');
+                    res.send(data);
+                    res.end();
+                    data = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+                function (err) {
+                    res.status(statusHTTP.internalServer);
+                    Router.LogAndMessage(res, "post/office/task/export_statistic_task_completed", err);
+                    res.end();
+                    err = undefined;
+                    res = undefined;
+                    req = undefined;
+                },
+            );
+        };
+    }),
+);
+
 
 module.exports = router;

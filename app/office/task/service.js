@@ -594,6 +594,48 @@ function buildParentFieldForTask(task) {
 class TaskService {
     constructor() { }
 
+     loadStatisticTaskCompleted(dbPrefix, body) {
+        const loadStatisticTaskCompletedAgg = taskFilterUtil.buildLoadStatisticTaskCompleted(body);
+        return MongoDBProvider.loadAggregate_onOffice(dbPrefix, "task", loadStatisticTaskCompletedAgg);
+    }
+
+    countStatisticTaskCompleted(dbPrefix, body) {
+        const countStatisticTaskCompletedAgg = taskFilterUtil.buildCountStatisticTaskCompleted(body);
+        return MongoDBProvider.loadAggregate_onOffice(dbPrefix, "task", countStatisticTaskCompletedAgg);
+    }
+
+    loadStatisticTaskUncompleted(dbPrefix, body) {
+        const loadStatisticTaskUncompletedAgg = taskFilterUtil.buildLoadStatisticTaskUncompleted(body);
+        return MongoDBProvider.loadAggregate_onOffice(dbPrefix, "task", loadStatisticTaskUncompletedAgg);
+    }
+    
+    countStatisticTaskUncompleted(dbPrefix, body) {
+        const countStatisticTaskUncompletedAgg = taskFilterUtil.buildCountStatisticTaskUncompleted(body);
+        return MongoDBProvider.loadAggregate_onOffice(dbPrefix, "task", countStatisticTaskUncompletedAgg);
+    }
+
+    exportStatisticTaskCompleted(dbPrefix, body) {
+        const exportStatisticTaskCompletedAgg = taskFilterUtil.buildExportStatisticTaskCompleted(body);
+        return MongoDBProvider.loadAggregate_onOffice(dbPrefix, "task", exportStatisticTaskCompletedAgg);
+    }
+    
+    statisticTasksPerson(dbPrefix, body) {
+        const dfd = q.defer();
+        const aggregation = taskFilterUtil.buildStatisticTasksPersonalAggregation(body);
+        MongoDBProvider.loadAggregate_onOffice(dbPrefix, "task", aggregation)
+            .then((result) => {
+                if (Array.isArray(result) && result.length > 0) {
+                    dfd.resolve(result[0]);
+                } else {
+                    dfd.resolve([]);
+                }
+            })
+            .catch((error) => {
+                dfd.reject(error);
+            });
+        return dfd.promise;
+    }
+
     loadByDispatchArrivedId(dbname_prefix, dispatch_arrived_id) {
         return MongoDBProvider.load_onOffice(dbname_prefix, "task", {
             "parent.object": OBJECT_NAME.DISPATCH_ARRIVED,
@@ -969,7 +1011,7 @@ class TaskService {
                 if (data[0]) {
                     dfd.resolve(data[0]);
                 } else {
-                    dfd.reject(BaseError.notFound("TaskService.loadDetails.DataIsNull"));
+                    dfd.reject(BaseError.notFound("TaskService.loadDetails.DataIsNull", "ShowPageNotFound"));
                 }
                 data = undefined;
             },
@@ -1150,7 +1192,7 @@ class TaskService {
         references,
         label,
         task_template_id,
-        origin = HEAD_TASK_ORIGIN.OTHER,
+        origin = HEAD_TASK_ORIGIN.INTER_DEPARTMENT,
         parents,
         dispatch_arrived_id,
         is_draft,
@@ -1259,7 +1301,7 @@ class TaskService {
         }
         
         q.fcall(function () {
-            return generateTaskCode(dbname_prefix, item, origin);
+            return generateTaskCode(dbname_prefix, item, origin); // bug
         }).then(code => {
             item.code = code;
             return MongoDBProvider.insert_onOffice(
@@ -3183,6 +3225,34 @@ class UserService {
 
     loadAggregateUser(dbname_prefix, filter) {
         return MongoDBProvider.loadAggregate_onManagement(dbname_prefix, "user", filter);
+    }
+
+    loadEmployeeNoTask(dbname_prefix, filter) {
+        let dfd = q.defer();
+        MongoDBProvider.loadAggregate_onManagement(dbname_prefix, 'user', filter).then(
+            function (data) {
+                dfd.resolve(data);
+            },
+            function (err) {
+                dfd.reject(err);
+                err = undefined;
+            }
+        );
+        return dfd.promise;
+    }
+
+    countEmployeeNoTask(dbname_prefix, filter) {
+        let dfd = q.defer();
+        MongoDBProvider.loadAggregate_onManagement(dbname_prefix, 'user', filter).then(
+            function (data) {
+                dfd.resolve(data[0]);
+            },
+            function (err) {
+                dfd.reject(err);
+                err = undefined;
+            }
+        );
+        return dfd.promise;
     }
 }
 

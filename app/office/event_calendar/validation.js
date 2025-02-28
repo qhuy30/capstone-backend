@@ -19,7 +19,7 @@ validation.load = function (req, res, next) {
         from_date: Joi.date().timestamp(),
         to_date: Joi.date().timestamp(),
         tab_child: Joi.string(),
-        filter_employee: Joi.array().items(Joi.string()),
+        sub_filter: Joi.object().optional(),
         levels: Joi.array().items(Joi.string().valid(Object.values(LEVEl_CALENDAR ))).optional().allow([]),
     };
     ValidationProvider.createMiddleware(schema_body, req, res, next);
@@ -32,7 +32,7 @@ validation.export_excel = function (req, res, next) {
         to_date: Joi.date().timestamp(),
         levels: Joi.array().items(Joi.string().valid(Object.values(LEVEl_CALENDAR))).optional().allow([]),
         tab_child: Joi.string(),
-        filter_employee: Joi.array().items(Joi.string()),
+        sub_filter: Joi.object().optional()
     };
     ValidationProvider.createMiddleware(schema_body, req, res, next);
 };

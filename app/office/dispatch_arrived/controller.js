@@ -692,45 +692,46 @@ function insertTask(req, daDetails){
         taskInsert.label_from_da = daDetails.task_label;
     
         TaskService.insert(
-            req.body._service[0].dbname_prefix,
-            req.body.username,
-            taskInsert.priority,
-            taskInsert.department,
-            taskInsert.title,
-            taskInsert.to_department,
-            taskInsert.content,
-            taskInsert.task_list,
-            taskInsert.main_person,
-            taskInsert.participant,
-            taskInsert.observer,
-            null,
-            taskInsert.from_date,
-            taskInsert.to_date,
-            taskInsert.object,
-            taskInsert.has_time,
-            taskInsert.hours,
-            taskInsert.task_type,
-            taskInsert.project,
-            taskInsert.goals,
-            date,
-            taskInsert.level,
-            taskInsert.head_task_id,
-            taskInsert.reference,
-            taskInsert.label,
-            null,
-            taskInsert.source_id,
-            taskInsert.parents,
-            taskInsert.dispatch_arrived_id,
-            taskInsert.is_draft,
-            req.body.session.employee_details.department,
-            taskInsert.has_repetitive,
-            taskInsert.per,
-            taskInsert.cycle,
-            taskInsert.has_expired,
-            taskInsert.expired_date,
-            taskInsert.child_work_percent,
-            null,
-            taskInsert.label_from_da,
+            req.body._service[0].dbname_prefix, //dbname_prefix
+            req.body.username, //username
+            1, //estimate
+            taskInsert.priority, //priority
+            taskInsert.department, //department
+            taskInsert.title, //title
+            taskInsert.to_department, //to_department
+            taskInsert.content, //content
+            taskInsert.task_list, //task_list
+            taskInsert.main_person, //main_person
+            taskInsert.participant, //participant
+            taskInsert.observer, //observer
+            null, //attachment
+            taskInsert.from_date, //from_date
+            taskInsert.to_date, //to_date
+            taskInsert.object, //object
+            taskInsert.has_time, //has_time
+            taskInsert.hours, //hours
+            taskInsert.task_type, //task_type
+            taskInsert.project, //project
+            taskInsert.goals, //goals
+            date, //date
+            taskInsert.level, //level
+            taskInsert.head_task_id, //head_task_id
+            taskInsert.reference, //references
+            taskInsert.label, //label
+            null, //task_template_id
+            taskInsert.source_id, //origin
+            taskInsert.parents, //parents
+            taskInsert.dispatch_arrived_id, //dispatch_arrived_id
+            taskInsert.is_draft, //is_draft
+            req.body.session.employee_details.department,  //from_department
+            taskInsert.has_repetitive, //has_repetitive
+            taskInsert.per, //per
+            taskInsert.cycle, //cycle
+            taskInsert.has_expired, //has_expired
+            taskInsert.expired_date, //expired_date
+            taskInsert.child_work_percent, //child_work_percent
+            null, //receive_transfer_ticket
+            taskInsert.label_from_da, //label_from_da
         ).then(function (task) {
             return loadTaskReferences(req.body._service[0].dbname_prefix, task, null, { expands: ["department"] });
         })

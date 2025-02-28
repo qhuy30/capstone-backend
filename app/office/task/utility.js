@@ -416,7 +416,7 @@ function addProjectFields(aggregationSteps = []) {
     });
 }
 
-function doFilter(aggregationSteps = [], queryCriteria) {
+function doFilter(aggregationSteps = [], queryCriteria, rule) {
 
     const conditions = [];
     //TAB
@@ -593,12 +593,20 @@ function doFilter(aggregationSteps = [], queryCriteria) {
         });
     }
 
-    //Task receiver need lead department approval
-    if (queryCriteria.is_approval_receiver_task === true) {
+    //Task receiver need approval
+    if (queryCriteria.is_approval_task === true) {
+        if (rule.some(e => e.rule === TASK_RULE.RECEIVE_TASK)) {
+            conditions.push({ 
+                $and:[
+                    { from_department: { $eq: queryCriteria.session.department }},
+                    { status: {$eq: TASK_STATUS.WAITING_LEAD_DEPARTMENT_APPROVE_RECEIVE }}  
+                ]
+            });
+        }
         conditions.push({ 
             $and:[
-                { to_department: { $eq: queryCriteria.session.department }},
-                { status: {$eq: TASK_STATUS.WAITING_LEAD_DEPARTMENT_APPROVE_RECEIVE }}
+                { observer: { $eq: queryCriteria.username }},
+                { status: {$eq: TASK_STATUS.WAITING_FOR_APPROVAL }}
             ]
         });
     }
@@ -608,7 +616,7 @@ function doFilter(aggregationSteps = [], queryCriteria) {
     }
 
     if (conditions.length > 0) {
-        aggregationSteps.push({ $match: { $and: conditions } });
+        aggregationSteps.push({ $match: { $or: conditions } });
     }
 }
 
@@ -888,14 +896,14 @@ function generatePermissionAggregate_specific(dbname, aggregationSteps, conditio
 class BuildFilterAggregate {
     constructor() { }
 
-    generateUIFilterAggregate_load(aggregationSteps = [], queryCriteria) {
+    generateUIFilterAggregate_load(aggregationSteps = [], queryCriteria, rule) {
         addTaskStateFields(aggregationSteps);
         addTaskProgressFields(aggregationSteps);
         addTaskDefaultFields(aggregationSteps);
         addDepartmentFields(aggregationSteps);
         addProjectFields(aggregationSteps);
         doStateSort(aggregationSteps);
-        doFilter(aggregationSteps, queryCriteria);
+        doFilter(aggregationSteps, queryCriteria, rule);
         doPagination(aggregationSteps, queryCriteria);
         return aggregationSteps;
     }

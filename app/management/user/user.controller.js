@@ -101,7 +101,7 @@ class UserController {
 
     login(body) {
         let dfd = q.defer();
-        UserService.checkExists(body._service[0].dbname_prefix, body.data.username, body.data.password).then(function (data) {
+        UserService.checkUserExists(body._service[0].dbname_prefix, body.data.username, body.data.password).then(function (data) {
             if (data[0]) {
                 let dataen = AuthenticationProvider.encrypt_lv1({ username: data[0].username });
                 let payload = { "data": dataen };
@@ -205,6 +205,10 @@ class UserController {
 
     changeLanguage(body) {
         return UserService.changeLanguage(body._service[0].dbname_prefix, body.username, body.key);
+    }
+
+    changeLanguageMobile(body) {
+        return UserService.changeLanguageMobile(body._service[0].dbname_prefix, body.username, body.key);
     }
 
     loadUserForAddFriend(body) {
@@ -408,6 +412,17 @@ class UserController {
             info.language,
             info.isactive,
             body.department);
+    }
+
+    sub_insert(body) {
+        let info = generateUserInfo(body);
+        body.password = AuthenticationProvider.encrypt_oneDirection_lv1(body.password);
+        return UserService.sub_insert(
+            body._service[0].dbname_prefix,
+            body.username,
+            body.password,
+            info.language,
+            true);
     }
 
     checkExist(body) {

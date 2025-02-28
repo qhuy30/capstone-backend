@@ -25,4 +25,5 @@ module.exports = [
     { path: '/office/event_calendar', router: require('./event_calendar/router') },
     { path: '/office/card_vehical', router: require('./card_vehicle/router') },
     { path: '/office/advanced_search', router: require('./advanced_search/router') },
+    { path: '/office/support', router: require('./support/router') },
 ]

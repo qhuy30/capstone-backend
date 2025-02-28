@@ -1741,7 +1741,7 @@ function findAndNotifyAllActors(req, item, status){
         RingBellItemService.insert(
             req.body._service[0].dbname_prefix,
             req.body.username,
-            'registration_room_letter',
+            MEETING_ROOM_ACTION_NAME.REGISTRATION_ROOM_LETTER,
             {
                 code: item.code,
                 title: item.title,

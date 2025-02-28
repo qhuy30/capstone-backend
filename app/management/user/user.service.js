@@ -11,6 +11,7 @@ const { StoreConst } = require('./../../../shared/store/gcp/store.const');
 const { gcpProvider } = require('../../../shared/store/gcp/gcp.provider');
 const folderArray = ['management','user']
 const { ItemSetup } = require('../../../shared/setup/items.const');
+const { OrganizationService } = require('@office/organization/organization.service');
 
 const nameLib = 'avatar';
 class UserService {
@@ -72,6 +73,35 @@ class UserService {
         }, undefined, undefined, undefined, { password: false });
     }
 
+    checkUserExists(dbname_prefix, username, password) {
+        const userQuery = {
+            $and: [
+                {
+                    $or: [
+                        { username: { $eq: username } },
+                        { username: { $eq: `${username}@pnt.edu.vn` } }
+                    ]
+                },
+                { password: { $eq: password } },
+                { isactive: { $eq: true } }
+            ]
+        };
+    
+        const subUserQuery = {
+            $and: [
+                { username },
+                { password },
+                { isactive: { $eq: true } }
+            ]
+        };
+    
+        return MongoDBProvider.load_onManagement(dbname_prefix, "user", userQuery, undefined, undefined, undefined, { password: false })
+            .then(user => {
+                if (user.length > 0) return user;
+                return MongoDBProvider.load_onManagement(dbname_prefix, "sub_user", subUserQuery, undefined, undefined, undefined, { password: false });
+            });
+    }    
+
     changePassword(dbname_prefix, username, password, newPassword) {
         return MongoDBProvider.update_onManagement(dbname_prefix, "user", username
             , {
@@ -91,6 +121,15 @@ class UserService {
                 username: { $eq: username }
             }, {
             $set: { "language.current": key }
+        });
+    }
+
+    changeLanguageMobile(dbname_prefix, username, key) {
+        return MongoDBProvider.update_onManagement(dbname_prefix, "user", username
+            , {
+                username: { $eq: username }
+            }, {
+            $set: { "language_mobile.current": key }
         });
     }
 
@@ -149,6 +188,53 @@ class UserService {
         return dfd.promise;
     }
 
+    sub_insert(dbname_prefix, username, password, language, isactive) {
+        let dfd = q.defer();
+    
+        if (systemUsername.includes(username)) {
+            dfd.reject({ path: "UserService.insert.CantCreateAccountWithSystemUsername", mes: "CantCreateAccountWithSystemUsername" });
+        } else {
+            MongoDBProvider.load_onManagement(
+                dbname_prefix,
+                "user",
+                { $or: [{ username }, { username: `${username}@pnt.edu.vn` }] },
+                1,
+                0
+            ).then(first_check => {
+                if (first_check.length > 0) {
+                    throw { path: "UserService.insert.UserIsExists", mes: "UserIsExists" };
+                }
+                return MongoDBProvider.load_onManagement(dbname_prefix, "sub_user", { username }, 1, 0);
+            }).then(nd_check => {
+                if (nd_check.length > 0) {
+                    throw { path: "UserService.insert.UserIsExists", mes: "UserIsExists" };
+                }
+
+                OrganizationService.load(dbname_prefix, { $and: [ { type: "department" }, { abbreviation: "system" } ]})
+                .then(department => {
+                    return MongoDBProvider.insert_onManagement(dbname_prefix, "sub_user", username, {
+                        username,
+                        password,
+                        language,
+                        isactive,
+                        department: department[0].id,
+                        rule: [
+                            { rule: "Authorized" },
+                            { rule: "Office.Task.Use" },
+                            { rule: "Office.Notify.Use" },
+                            { rule: "Office.MeetingRoomSchedule.Use" }, 
+                            { rule: "Office.EventCalendar.Use" },
+                            { rule: "Office.CarManagement.Use" }
+                        ],
+                        role: []
+                    });
+                }).catch(err => dfd.reject(err));
+            }).then(() => dfd.resolve(true))
+            .catch(err => dfd.reject(err));
+        }
+    
+        return dfd.promise;
+    }
 
 
     loadForDirective(dbname_prefix, username) {

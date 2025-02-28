@@ -114,6 +114,10 @@ class SettingController {
         );
         return dfd.promise;
     }
+
+    mobile_config(body) {
+        return SettingService.getCurrentValueByKey(body._service[0].dbname_prefix, 'mobile_config');
+    }
 }
 
 exports.SettingController = new SettingController();

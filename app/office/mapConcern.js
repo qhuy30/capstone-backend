@@ -19,4 +19,5 @@ module.exports = [
     require('./meeting_room/map'),
     require('./event_calendar/map'),
     require('./advanced_search/map'),
+    require('./support/map'),
 ];

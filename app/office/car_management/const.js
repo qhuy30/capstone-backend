@@ -59,6 +59,7 @@ exports.CAR_ACTION_NAME = {
     REQUEST_CANCEL: 'car_registration_request_cancel',
     APPROVE_RECALL: 'car_registration_approve_recall',
     REJECT_RECALL: 'car_registration_reject_recall',
+    LETTER: 'car_registration_letter',
 }
 
 exports.CAR_FROM_ACTION = {

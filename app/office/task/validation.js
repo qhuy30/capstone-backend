@@ -16,6 +16,40 @@ const Joi = ValidationProvider.initModuleValidation();
 
 let validation = {};
 
+validation.load_statistic_task = function (req, res, next) {
+    const schema_body = {
+        top: Joi.number().required(),
+        offset: Joi.number().required(),
+        from_date: Joi.date().timestamp("javascript").required(),
+        to_date: Joi.date().timestamp("javascript").required(),
+        search: Joi.string().allow(null, ""),
+        employee: Joi.array().items(Joi.string()),
+        department: Joi.array().items(Joi.string()),
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+};
+
+validation.count_statistic_task = function (req, res, next) {
+    const schema_body = {
+        from_date: Joi.date().timestamp("javascript").required(),
+        to_date: Joi.date().timestamp("javascript").required(),
+        employee: Joi.array().items(Joi.string()),
+        department: Joi.array().items(Joi.string()),
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+};
+
+validation.export_statistic_task_completed = function (req, res, next) {
+    const schema_body = {
+        from_date: Joi.date().timestamp("javascript").required(),
+        to_date: Joi.date().timestamp("javascript").required(),
+        search: Joi.string().allow(null, ""),
+        employee: Joi.array().items(Joi.string()),
+        department: Joi.array().items(Joi.string()),
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+};
+
 validation.load_child = function (req, res, next) {
     const schema_body = {
         ids: Joi.array().items(Joi.string().required()).required()
@@ -63,7 +97,7 @@ validation.load_quickhandle = function (req, res, next) {
         projects: Joi.array().items(Joi.string()),
         is_dispatch_arrived: Joi.boolean(),
         is_receiver_task: Joi.boolean(),
-        is_approval_receiver_task: Joi.boolean(),
+        is_approval_task: Joi.boolean(),
         is_get_all: Joi.boolean()
     };
     ValidationProvider.createMiddleware(schema_body, req, res, next);
@@ -573,6 +607,7 @@ validation.insert_task_external = function (req, res, next) {
             from_date: Joi.date().timestamp(),
             to_date: Joi.date().timestamp().min(Joi.ref('from_date')).required(),
             department: Joi.string().required(),
+            observer: Joi.string().required(),
             priority: Joi.number(),
             has_time: Joi.boolean().required(),
             searching: Joi.string(),
@@ -951,6 +986,7 @@ validation.load_task_external = function (req, res, next) {
         status: Joi.array().items(Joi.string().valid(Object.values(TASK_STATUS))),
         state: Joi.array().items(Joi.string().valid(Object.values(TASK_STATE))),
         label: Joi.array().items(Joi.string()),
+        departments: Joi.array().items(Joi.string()),
         priority: Joi.array().items(Joi.number()),
         // task_type: Joi.array().items(Joi.number()),
         // task_group: Joi.array().items(Joi.string().valid(Object.values(TASK_GROUP_FILTER))),
@@ -968,6 +1004,7 @@ validation.count_task_external = function (req, res, next) {
         status: Joi.array().items(Joi.string().valid(Object.values(TASK_STATUS))),
         state: Joi.array().items(Joi.string().valid(Object.values(TASK_STATE))),
         label: Joi.array().items(Joi.string()),
+        departments: Joi.array().items(Joi.string()),
         priority: Joi.array().items(Joi.number()),
         // task_type: Joi.array().items(Joi.number()),
         // task_group: Joi.array().items(Joi.string().valid(Object.values(TASK_GROUP_FILTER))),
@@ -989,5 +1026,27 @@ validation.update_head_task = Joi.object().keys({
     estimate: Joi.number(),
     remove_attachment: Joi.array().items(Joi.string()),
 }).required();
+
+validation.load_employee_no_task = function (req, res, next) {
+    const schema_body = {
+        isactive: Joi.boolean(),
+        top:Joi.number().required(),
+        offset:Joi.number().required(),
+        employee: Joi.array().items(Joi.string()),
+        department: Joi.array().items(Joi.string()),
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+}
+
+validation.export_statistic_task_uncompleted = function (req, res, next) {
+    const schema_body = {
+        from_date: Joi.date().timestamp("javascript").required(),
+        to_date: Joi.date().timestamp("javascript").required(),
+        search: Joi.string().allow(null, ""),
+        employee: Joi.array().items(Joi.string()),
+        department: Joi.array().items(Joi.string()),
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+};
 
 exports.validation = validation;

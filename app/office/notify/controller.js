@@ -11,7 +11,7 @@ const parentFolder = "office";
 
 const folderArray = ["office"];
 const { getValidValue, genFilterRuleUser } = require("../../../utils/util");
-const { NOTIFY_SCOPE, NOTIFY_STATUS, NOTIFY_RULE, NOTIFY_BELL_MODAL, NOTIFY_TYPE } = require("./const");
+const { NOTIFY_SCOPE, NOTIFY_STATUS, NOTIFY_RULE, NOTIFY_BELL_MODAL, NOTIFY_TYPE, NOTIFY_ACTION, NOTIFY_FROM_ACTION } = require("./const");
 const { RingBellItemService } = require("@app/management/ringbell_item/service");
 const { checkRuleRadioDepartment , checkRuleCheckBox} = require("@utils/ruleUtils");
 const BaseError = require("@shared/error/BaseError");
@@ -107,7 +107,7 @@ function getStatusApproveByNotify(notify) {
 }
 
 function sendRingBellReject(body, rejectedNotify) {
-    sendRingBellDepartmentCreate(body, rejectedNotify, NOTIFY_BELL_MODAL.REJECTED, "rejectNotify")
+    sendRingBellDepartmentCreate(body, rejectedNotify, NOTIFY_BELL_MODAL.REJECTED, NOTIFY_FROM_ACTION.REJECT)
 }
 
 function checkRuleToApproveNotify(user, notify) {
@@ -202,7 +202,7 @@ function sendRingBellInsert(req, newNotify, approverUsername) {
         },
         approverUsername,
         [],
-        "createNotify",
+        NOTIFY_FROM_ACTION.CREATE,
         d,
         []
     );
@@ -697,7 +697,7 @@ class NotifyController {
                         
                         getUsersNotify(req.body, filterNotify).then(function(users){
                             if (newNotify.status == NOTIFY_STATUS.APPROVED) {
-                                sendRingBellApproved(req.body, "notify_approved", newNotify, "approveNotify");
+                                sendRingBellApproved(req.body, NOTIFY_ACTION.APPROVED, newNotify, NOTIFY_FROM_ACTION.APPROVED);
                             } else {
                                 sendRingBellInsert(req, newNotify, users);
                             }

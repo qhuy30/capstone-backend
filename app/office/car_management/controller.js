@@ -659,7 +659,6 @@ class CarManagementController {
         const dfd = q.defer();
         FileProvider.upload(req, nameLib, validation.insert, undefined, parentFolder, req.body.username)
             .then(function (res) {
-
                 let data = genInsertEntity(res.Fields, req.body.username);
 
                 let attachment = [];
@@ -693,7 +692,6 @@ class CarManagementController {
                 }, function (err) { dfd.reject(err) })
 
             }, function (err) {
-                console.log(err);
                 dfd.reject({ path: "CarManagementController.insert.uploadfailed", err: "uploadfailed" })
             });
         return dfd.promise;
@@ -1898,7 +1896,7 @@ function findAndNotifyAllActors(req, item, status){
         RingBellItemService.insert(
             req.body._service[0].dbname_prefix,
             req.body.username,
-            'car_registration_letter',
+            CAR_ACTION_NAME.LETTER,
             {
                 code: item.code,
                 title: item.title,

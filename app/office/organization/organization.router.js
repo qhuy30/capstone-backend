@@ -474,4 +474,39 @@ router.post('/load_all_department',
     }
 ));
 
+router.post(
+    '/load_employee_by_departments',
+    MultiTenant.match({ module_key: ['office'] }),
+    validation.load_employee_by_departments,
+    Router.trycatchFunction(
+        'post/office/organization/load_employee_by_departments',
+        function(req, res) {
+            return function() {
+                OrganizationController.load_employee_by_departments(req.body)
+                    .then(
+                        function(data) {
+                            res.send(data);
+                            res.end();
+                            data = undefined;
+                        },
+                        function(err) {
+                            res.status(statusHTTP.internalServer);
+                            Router.LogAndMessage(
+                                res,
+                                'post/office/organization/load_employee_by_departments',
+                                err,
+                            );
+                            res.end();
+                            err = undefined;
+                        },
+                    )
+                    .finally(function() {
+                        res = undefined;
+                        req = undefined;
+                    });
+            };
+        },
+    ),
+);
+
 module.exports = router;

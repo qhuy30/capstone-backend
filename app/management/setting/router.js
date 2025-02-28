@@ -97,4 +97,25 @@ router.post('/upload_image',MultiTenant.match(), PermissionProvider.check(["Mana
     }
 }));
 
+router.get('/mobile_config', MultiTenant.match(), Router.trycatchFunction("get/management/setting/mobile_config", function (req, res) {
+    return function () {
+        SettingController.mobile_config(req.body).then(function(data){
+            res.send(data.value);
+            res.end();
+            data = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        },function(err){
+            res.status(statusHTTP.internalServer);
+            Router.LogAndMessage(res, "get/management/setting/mobile_config", err);
+            res.end();
+            err = undefined;
+            res = undefined;
+            req = undefined;
+            return;
+        });
+    }
+}));
+
 module.exports = router;

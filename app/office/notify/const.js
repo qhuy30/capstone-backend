@@ -82,3 +82,13 @@ exports.NOTIFY_TYPE = {
     EMPLOYEE: "Employee",
     DEPARTMENT: "Department"
 };
+
+exports.NOTIFY_ACTION = {
+    APPROVED: "notify_approved",
+}
+
+exports.NOTIFY_FROM_ACTION = {
+    APPROVED: "approveNotify",
+    CREATE: "createNotify",
+    REJECT: "rejectNotify",
+}

@@ -20,7 +20,7 @@ const {
 const { WorkflowPlayService: WFPService } = require("@office/workflow_play/service");
 const { TaskTemplateService } = require('../task_template/service');
 
-const { getCurrentDate, isValidValue, getValidValue, praseStringToObject, generateParent, genFilterGetUsersByRuleAndDepartment, extractStringBetweenSlashes } = require('../../../utils/util');
+const { getCurrentDate, isValidValue, getValidValue, praseStringToObject, generateParent, genFilterGetUsersByRule, genFilterGetUsersByRuleAndDepartment, extractStringBetweenSlashes, groupByColumn, sumByColumn, formatToTimestamp, convertDateFormat, filterLanguage, convertRole } = require('../../../utils/util');
 const fileUtil = require('../../../utils/fileUtil');
 const {checkRuleCheckBox, checkRuleRadioDepartment} = require('../../../utils/ruleUtils');
 const { FileProvider } = require('../../../shared/file/file.provider');
@@ -38,7 +38,8 @@ const workflow_play = require('../workflow_play');
 const { dbname_prefix } = require('@shared/multi_tenant/pnt-tenant');
 const { genData, getUsernameDepartmentToNotify } = require('./utils');
 const department = require('@shared/setup/items/office/department');
-const { TASK_RULE_NEW } = require('./const');
+const { TASK_RULE_NEW, TASK_ACTION, TASK_FROM_ACTION } = require('./const');
+const XLSX = require('xlsx-js-style');
 
 const nameLib = "task";
 const parentFolder = "office";
@@ -2284,6 +2285,235 @@ function notify(req, filter, action, params, from_action){
 class TaskController {
     constructor() { }
 
+    load_statistic_task_completed(body) {
+        let dfd = q.defer();
+        const dbPrefix = body._service[0].dbname_prefix;
+        TaskService.loadStatisticTaskCompleted(dbPrefix, body)
+            .then((data) => {
+                    dfd.resolve(data);
+                })
+            .catch(dfd.reject);
+        return dfd.promise;
+    }
+
+    count_statistic_task_completed(body) {
+        let dfd = q.defer();
+        const dbPrefix = body._service[0].dbname_prefix;
+        TaskService.countStatisticTaskCompleted(dbPrefix, body)
+            .then((data) => {
+                    dfd.resolve(data[0]);
+                })
+            .catch(dfd.reject);
+        return dfd.promise;
+    }
+
+    load_statistic_task_uncompleted(body) {
+        let dfd = q.defer();
+        const dbPrefix = body._service[0].dbname_prefix;
+        TaskService.loadStatisticTaskUncompleted(dbPrefix, body)
+            .then((data) => {
+                    dfd.resolve(data);
+                })
+            .catch(dfd.reject);
+        return dfd.promise;
+    }
+    
+    count_statistic_task_uncompleted(body) {
+        let dfd = q.defer();
+        const dbPrefix = body._service[0].dbname_prefix;
+        TaskService.countStatisticTaskUncompleted(dbPrefix, body)
+            .then((data) => {
+                    dfd.resolve(data[0]);
+                })
+            .catch(dfd.reject);
+        return dfd.promise;
+    }
+
+    export_statistic_task_completed(body) {
+        let dfd = q.defer();
+        const dbPrefix = body._service[0].dbname_prefix;
+        const workbook = XLSX.utils.book_new();
+        const languageCurrent = body.session.language.current;
+        TaskService.exportStatisticTaskCompleted(dbPrefix, body).then((data) => {
+            data = groupByColumn(data, 'username');
+            for(let username in data) {
+                const tasks = data[username];
+                // Create empty worksheet first
+                const worksheet = XLSX.utils.book_new();
+                // Calculate totals for each role
+                const total = {
+                    main_person: [
+                        tasks.filter(task => task.roles.includes('main_person')).length,
+                        sumByColumn(tasks.filter(task => task.roles.includes('main_person')), 'worktimes'),
+                        sumByColumn(tasks.filter(task => task.roles.includes('main_person')), 'estimate'),
+                    ],
+                    observer: [
+                        tasks.filter(task => task.roles.includes('observer')).length,
+                        sumByColumn(tasks.filter(task => task.roles.includes('observer')), 'worktimes'),
+                        sumByColumn(tasks.filter(task => task.roles.includes('observer')), 'estimate'),
+                    ],
+                    participant: [
+                        tasks.filter(task => task.roles.includes('participant')).length,
+                        sumByColumn(tasks.filter(task => task.roles.includes('participant')), 'worktimes'),
+                        sumByColumn(tasks.filter(task => task.roles.includes('participant')), 'estimate'),
+                    ],
+                }
+
+                // Add stats data at the top
+                const statsData = [
+                    ['', 'Số công việc', 'Tổng thời gian thực tế', 'Tổng thời gian yêu cầu'],
+                    ['Chủ trì', ...total.main_person],
+                    ['Hỗ trợ', ...total.participant],
+                    ['Giám sát', ...total.observer],
+                ];
+
+                // Add stats data starting from B2
+                statsData.forEach((row, index) => {
+                    XLSX.utils.sheet_add_aoa(worksheet, [row], { origin: `B${index + 2}` });
+                });
+
+                // Add main table headers in row 7
+                const headers = [
+                    'Mã công việc',
+                    'Tên công việc',
+                    'Thời gian thực hiện\n Thực tế/ Yêu cầu',
+                    'Thời gian bắt đầu',
+                    'Thời hạn',
+                    'Thời gian kết thúc',
+                    'Tình trạng',
+                    'Nhãn',
+                    'Vai trò',
+                ];
+                XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A7' });
+
+                // Add main table data starting from row 8
+                const worksheetData = tasks.map(task => ([
+                    task.code,
+                    task.title,
+                    `${task.estimate}/${task.worktimes}`,
+                    formatToTimestamp(task.from_date),
+                    task.to_date ? formatToTimestamp(task.to_date): '',
+                    task.date_completed ? convertDateFormat(task.date_completed): '',
+                    filterLanguage(task.state, languageCurrent),
+                    task.labelTitles.map(label => label.title).join('\n'),
+                    task.roles.map(role => convertRole(role)).join('\n'),
+                ]));
+                XLSX.utils.sheet_add_aoa(worksheet, worksheetData, { origin: 'A8' });
+
+                // Set column widths
+                const columnWidths = [
+                    { wch: 15 },  // Mã công việc
+                    { wch: 30 },  // Tiêu đề
+                    { wch: 20 },  // Dự án
+                    { wch: 25 },  // Thời gian thực hiện
+                    { wch: 15 },  // Thời gian bắt đầu
+                    { wch: 15 },  // Thời hạn
+                    { wch: 15 },  // Thời gian kết thúc
+                    { wch: 25 },  // Tình trạng
+                    { wch: 20 },  // Nhãn
+                    { wch: 20 },  // Vai trò
+                ];
+                worksheet['!cols'] = columnWidths;
+
+                // Add borders and styling for stats table
+                for (let row = 2; row <= 5; row++) {
+                    for (let col = 1; col <= 4; col++) {
+                        const cellRef = XLSX.utils.encode_cell({ r: row - 1, c: col });
+                        
+                        worksheet[cellRef].s = {
+                            border: {
+                                top: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                left: { style: 'thin' },
+                                right: { style: 'thin' }
+                            },
+                            alignment: {
+                                horizontal: "center",
+                                vertical: "center",
+                                wrapText: true
+                            }
+                        };
+
+                        // Add bold and background for header row
+                        if (row === 2) {
+                            worksheet[cellRef].s.font = {
+                                bold: true,
+                                sz: 11
+                            };
+                            worksheet[cellRef].s.fill = {
+                                fgColor: { rgb: "F2F2F2" }
+                            };
+                        }
+
+                        // Add bold for role column
+                        if (col === 1 && row > 2) {
+                            worksheet[cellRef].s.font = {
+                                bold: true,
+                                sz: 11
+                            };
+                        }
+                    }
+                }
+
+                    // Add borders and styling for main table
+                const range = XLSX.utils.decode_range(worksheet['!ref']);
+                for (let R = 6; R <= range.e.r; R++) {
+                    for (let C = 0; C <= 9; C++) {
+                        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+                        if (!worksheet[cellRef]) continue;
+
+                        worksheet[cellRef].s = worksheet[cellRef].s || {};
+                        
+                        // Add borders to all cells
+                        worksheet[cellRef].s.border = {
+                            top: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            left: { style: 'thin' },
+                            right: { style: 'thin' }
+                        };
+
+                        // Bold font for column headers (row 7)
+                        if (R === 6) {
+                            worksheet[cellRef].s.font = {
+                                bold: true,
+                                sz: 15
+                            };
+                            worksheet[cellRef].s.fill = {
+                                fgColor: { rgb: "F2F2F2" }
+                            };
+                        }
+
+                        // Alignment for all cells
+                        worksheet[cellRef].s.alignment = {
+                            vertical: "center",
+                            horizontal: "center",
+                            wrapText: true
+                        };
+                    }
+                }
+
+                XLSX.utils.book_append_sheet(workbook, worksheet, tasks[0].titleName || username);
+            }
+
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+            dfd.resolve(excelBuffer);
+            
+        }, function(err){
+            dfd.reject(err);
+        })
+        return dfd.promise;
+    }
+
+    load_statistic_task_uncompleted(body) {
+        const dbPrefix = body._service[0].dbname_prefix;
+        return TaskService.loadStatisticTaskUncompleted(dbPrefix, body)
+    }
+
+    statistic_tasks_person(body) {
+        const dbPrefix = body._service[0].dbname_prefix;
+        return TaskService.statisticTasksPerson(dbPrefix, body);
+    }
+
     loadEmployee(body) {
         return TaskService.loadEmployee(body._service[0].dbname_prefix, body.department, body.username_details.competence, body.username, body.session.rule);
     }
@@ -2314,11 +2544,30 @@ class TaskController {
 
     loadDetails(body, expands = []) {
         let dfd = q.defer();
-        TaskService.loadDetails(body._service[0].dbname_prefix, body.id, body.code)
+        const { session: user, username, _service, id, code } = body;
+        const dbPrefix = _service[0].dbname_prefix;
+
+        TaskService.loadDetails(dbPrefix, id, code)
             .then((task) => {
+                const isAuthorized = [
+                    task.username,
+                    ...(task.main_person || []),
+                    ...(task.participant || []),
+                    ...(task.observer || [])
+                ].includes(username);
+    
+                const isReceiver = checkRuleCheckBox(TASK_RULE.RECEIVE_TASK, user) && 
+                    (task.to_department === user.department || task.from_department === user.department);
+    
+                const isFollower = checkRuleRadioDepartment(user.rule, task.department, user.department, TASK_RULE.FOLLOW_DEPARTMENT);
+    
+                if (!isAuthorized && !isReceiver && !isFollower) {
+                    throw BaseError.permissionDenied("TaskService.loadDetails.PermissionDenied", "ShowPageNotPermission");
+                }
+
                 return q.all([
                     task,
-                    loadTaskReferences(body._service[0].dbname_prefix, task, { expands }),
+                    loadTaskReferences(dbPrefix, task, { expands }),
                 ]);
             })
             .then(([task]) => {
@@ -2327,12 +2576,8 @@ class TaskController {
             .then((task) => {
                 return q.all([
                     task,
-                    WorkItemService.checkUserHaveRuleToCreateTaskFromHeadTask(
-                        body._service[0].dbname_prefix,
-                        body.session,
-                        task,
-                    ),
-                    TaskService.checkRuleToEditProgress(body.session, task),
+                    WorkItemService.checkUserHaveRuleToCreateTaskFromHeadTask(dbPrefix, user, task),
+                    TaskService.checkRuleToEditProgress(user, task)        
                 ]);
             })
             .then(([task, canCreateTask, canEditProgress]) => {
@@ -2340,7 +2585,7 @@ class TaskController {
                     addWorkItemFlag: canCreateTask,
                     editProgressFlag: canEditProgress,
                 });
-                return resolveParents(body._service[0].dbname_prefix, task);
+                return resolveParents(dbPrefix, task);
             })
             .then((task) => {
                 dfd.resolve(task);
@@ -2691,7 +2936,8 @@ class TaskController {
                 aggerationSearch
             ).then(function (aggerationSteps) {
                 const queryCriteria = { ...body };
-                const filter = BuildFilterAggregate.generateUIFilterAggregate_load(aggerationSteps, queryCriteria);
+                const rule = body.session.rule;
+                const filter = BuildFilterAggregate.generateUIFilterAggregate_load(aggerationSteps, queryCriteria, rule);
                 TaskService.load_quickhandle(body._service[0].dbname_prefix, filter).then(function (data) {
                     dfd.resolve(data);
                 }, function (err) {
@@ -3060,115 +3306,32 @@ class TaskController {
 
                 data.code = task.code
 
-                if (data.main_person && data.main_person.length > 0) {
-                    data.main_person.filter(username => username !== currentUser)
-                    RingBellItemService.insert(
-                        dbPrefix,
-                        currentUser,
-                        "task_assigned_main_person",
-                        {
-                            taskCode: task.code,
-                            title: task.title,
-                            username_create_task: currentUser,
-                        },
-                        task.main_person,
-                        [],
-                        "createTask",
-                        date.getTime()
-                    );
-                }
-
-
-                if (data.participant && data.participant.length > 0) {
-                    data.participant.filter(username => username !== currentUser)
-                    RingBellItemService.insert(
-                        dbPrefix,
-                        currentUser,
-                        "task_assigned_participant",
-                        {
-                            taskCode: data.code,
-                            title: data.title,
-                            username_create_task: currentUser,
-                        },
-                        data.participant,
-                        [],
-                        "createTask",
-                        date.getTime(),
-                    );
-                }
-
-                if (data.observer && data.observer.length > 0) {
-                    data.observer.filter(username => username !== currentUser)
-                    RingBellItemService.insert(
-                        dbPrefix,
-                        currentUser,
-                        "task_assigned_observer",
-                        {
-                            taskCode: data.code,
-                            title: data.title,
-                            username_create_task: currentUser,
-                        },
-                        data.observer,
-                        [],
-                        "createTask",
-                        date.getTime(),
-                    );
-                }
-
-
-                const filterToNotify = genFilterGetUsersByRuleAndDepartment(TASK_RULE.NOTIFY_DEPARTMENT, data.department);
-                UserService.loadAggregateUser(dbPrefix, filterToNotify)
-                    .then(function (res) {
-                        const usernameToReceive = res.filter(item => item.username !== currentUser).map(item => item.username);
-                        if (usernameToReceive.length > 0) {
+                const notifyUsers = (userList, type) => {
+                    if (userList && userList.length > 0) {
+                        const filteredUsers = userList.filter(username => username !== currentUser);
+                        if (filteredUsers.length > 0) {
                             RingBellItemService.insert(
                                 dbPrefix,
                                 currentUser,
-                                'task_receive_to_know',
+                                type,
                                 {
                                     taskCode: data.code,
                                     title: data.title,
-                                    username_create_task: currentUser,
+                                    username_create_task: currentUser
                                 },
-                                usernameToReceive,
+                                filteredUsers,
                                 [],
-                                "createTask",
+                                TASK_FROM_ACTION.CREATE,
                                 date.getTime()
                             );
                         }
-                    })
-                    .catch(function (err) {
-                        console.error(err);
-                        dfd.reject(err);
-                    });
+                    }
+                };
 
-                // TaskService.loadEmployeeDepartment(req.body._service[0].dbname_prefix, data.department)
-                //     .then(function (res) {
-                //         let usernameToNotifySet = new Set();
-                //         let usernameToReceive = getUsernameDepartmentToNotify(res, data.department);
-                //         usernameToReceive = usernameToReceive.filter(username => !usernameToNotifySet.has(username) && username != req.body.username);
-                //         console.log('usernameToReceive',usernameToReceive);
-                //         if (usernameToReceive.length > 0) {
-                //             RingBellItemService.insert(
-                //                 req.body._service[0].dbname_prefix,
-                //                 req.body.username,
-                //                 'task_receive_to_know',
-                //                 {
-                //                     taskCode: data.code,
-                //                     title: data.title,
-                //                     username_create_task: req.body.username,
-                //                 },
-                //                 usernameToReceive,
-                //                 [],
-                //                 "createTask",
-                //                 date.getTime()
-                //             );
-                //         }
-                //     })
-                //     .catch(function (err) {
-                //         console.error(err);
-                //         dfd.reject(err);
-                //     });
+                // Notify to MainPerson, Participant, Observer
+                notifyUsers(data.main_person, TASK_ACTION.ASSIGNED_MAIN_PERSON);
+                notifyUsers(data.participant, TASK_ACTION.ASSIGNED_PARTICIPANT);
+                notifyUsers(data.observer, TASK_ACTION.ASSIGNED_OBSERVER);
             })
             .catch(function (err) {
                 LogProvider.error("Can not save task with reason: " + err.mes || err.message);
@@ -3243,10 +3406,10 @@ class TaskController {
                 },
             );
         });
-        dfd.resolve(true);
         return dfd.promise;
     }
 
+    // import công việc trong phòng ban
     insert_for_multiple_departments(req) {
         let dfd = q.defer();
         let date = new Date();
@@ -3266,82 +3429,85 @@ class TaskController {
                         }
                         return q.resolve(null);
                     })
-                        .then(function (dispatchArrived) {
-                            if (data.dispatch_arrived_id && _.isEmpty(dispatchArrived)) {
-                                return dfd.reject({
-                                    path: "TaskController.insert_for_multiple_departments",
-                                    message: "DispatchArrivedNotFound",
-                                });
-                            }
-                            data.attachment = [];
-                            data.reference = [];
-                            if (data.dispatch_arrived_id) {
-                                Object.assign(data, {
-                                    reference: [{ object: "DispatchArrived", id: data.dispatch_arrived_id }],
-                                    level: TASK_LEVEL.HEAD_TASK,
-                                    attachment: dispatchArrived.attachment,
-                                });
-                            }
-                        })
-                        .then(function () {
-                            return TaskService.insert(
-                                req.body._service[0].dbname_prefix, //1
-                                req.body.username, //1
-                                data.priority, //1
-                                data.department, //1
-                                data.title, //1
-                                null,
-                                data.content, //1
-                                data.task_list, //1
-                                usernameToNotify, //main person
-                                [], //participant
-                                [], //observer
-                                data.attachment, //1
-                                data.from_date, //1
-                                data.to_date, //1
-                                undefined, //object
-                                data.has_time, //1
-                                data.hours, //1
-                                data.task_type, //1
-                                undefined, //project
-                                undefined, //goals
-                                date, //1
-                                TASK_LEVEL.HEAD_TASK, //1
-                                null, //head_task_id
-                                data.reference, //1
-                                data.label, //label
-                                null, //task_template_id
-                                HEAD_TASK_ORIGIN.SCHOOL_OFFICE, //1,
-                                [], //parents,
-                                null, //dispatch_arrived_id,
-                                false, //is_draft,
-                                null, //from_department,
-                                false, //has_repetitive,
-                                null, //per,
-                                null, //cycle,
-                                false, //has_expired,
-                                null, //expired_date,
-                                null, //child_work_percent,
-                                null, //receive_transfer_ticket,
-                                null, //label_from_da,
-                            );
-                        })
-                        .then(function (res) {
-                            dfd.resolve(true);
-                            RingBellItemService.insert(
-                                req.body._service[0].dbname_prefix,
-                                req.body.username,
-                                "task_assigned_department",
-                                { taskCode: res.code, title: data.title, username_create_task: req.body.username },
-                                usernameToNotify,
-                                [],
-                                "createTaskDepartment",
-                                date.getTime(),
-                            );
-                        })
-                        .catch(function (err) {
-                            LogProvider.error("Can not save task with reason: " + err.mes || err.message);
-                        });
+                    .then(function (dispatchArrived) {
+                        if (data.dispatch_arrived_id && _.isEmpty(dispatchArrived)) {
+                            return dfd.reject({
+                                path: "TaskController.insert_for_multiple_departments",
+                                message: "DispatchArrivedNotFound",
+                            });
+                        }
+                        data.attachment = [];
+                        data.reference = [];
+                        if (data.dispatch_arrived_id) {
+                            Object.assign(data, {
+                                reference: [{ object: "DispatchArrived", id: data.dispatch_arrived_id }],
+                                level: TASK_LEVEL.HEAD_TASK,
+                                attachment: dispatchArrived.attachment,
+                            });
+                        }
+                    })
+                    .then(function () {
+                        return TaskService.insert(
+                            req.body._service[0].dbname_prefix, //dbname_prefix
+                            req.body.username, //username
+                            12, // estimate
+                            data.priority, //priority
+                            data.department, //department
+                            data.title, //title
+                            null, //to_department
+                            data.content, //content
+                            data.task_list, //task_list
+                            usernameToNotify, //main person
+                            [], //participant
+                            [req.body.username], //observer
+                            data.attachment, //attachment
+                            data.from_date, //from_date
+                            data.to_date, //to_date
+                            undefined, //object
+                            data.has_time, //has_time
+                            data.hours, //hours
+                            data.task_type, //task_type
+                            undefined, //project
+                            undefined, //goals
+                            date, //date
+                            TASK_LEVEL.HEAD_TASK, //level
+                            null, //head_task_id
+                            data.reference, //references
+                            data.label, //label
+                            null, //task_template_id
+                            HEAD_TASK_ORIGIN.INTER_DEPARTMENT, //source_id
+                            [], //parents,
+                            null, //dispatch_arrived_id,
+                            false, //is_draft,
+                            null, //from_department,
+                            false, //has_repetitive,
+                            null, //per,
+                            null, //cycle,
+                            false, //has_expired,
+                            null, //expired_date,
+                            null, //child_work_percent,
+                            null, //receive_transfer_ticket,
+                            null, //label_from_da,
+                        );
+                    })
+                    .then(function (res) {
+                        dfd.resolve(true);
+                        RingBellItemService.insert(
+                            req.body._service[0].dbname_prefix,
+                            req.body.username,
+                            "task_assigned_department",
+                            { taskCode: res.code, title: data.title, username_create_task: req.body.username },
+                            usernameToNotify,
+                            [],
+                            "createTaskDepartment",
+                            date.getTime(),
+                        );
+                    })
+                    .catch(function (err) {
+                        console.log(err);
+                        LogProvider.error("Can not save task with reason: " + err.mes || err.message);
+                        dfd.reject(err);
+                    });
                 },
             );
         });
@@ -3349,7 +3515,7 @@ class TaskController {
         return dfd.promise;
     }
 
-    
+    // import công việc toàn trường    
     insert_task_external(req) {
         let dfd = q.defer();
         let date = new Date();
@@ -3367,7 +3533,7 @@ class TaskController {
                         req.body._service[0].dbname_prefix, 
                         req.body.username,
                         data.priority, // priority
-                        1, // estimate
+                        12, // estimate
                         data.department, // department
                         data.title, // title
                         null, // to_department
@@ -3375,7 +3541,7 @@ class TaskController {
                         data.task_list, //task_list
                         usernameToNotify, // main_person
                         [], //participant
-                        [req.body.username], // observer
+                        [data.observer], // observer
                         [], // attachment
                         data.from_date, // from_date
                         data.to_date, // to_date
@@ -3800,34 +3966,32 @@ class TaskController {
             checkRuleToEditTaskDetails(body.session, taskDetails).then(function () {
                 TaskService.start(dbPrefix, username, body.id, date).then(function (docUpdated) {
                     dfd.resolve(taskDetails);
-                    let usernameToNotify = [];
 
-                    usernameToNotify = usernameToNotify.concat(docUpdated.main_person);
-                    usernameToNotify = usernameToNotify.concat(docUpdated.participant);
-                    usernameToNotify = usernameToNotify.concat(docUpdated.observer);
+                    const usernameToNotify = [
+                        ...new Set(
+                            [
+                                ...docUpdated.main_person,
+                                ...docUpdated.participant,
+                                ...docUpdated.observer
+                            ].filter(u => u !== username)
+                        )
+                    ];                                        
 
-
-                    TaskService.loadEmployeeDepartment(dbPrefix, docUpdated.department)
-                    .then(function (res) {
-                        let usernameToNotifySet = new Set();
-                        let usernameToReceive = getUsernameDepartmentToNotify(res, docUpdated.department);
-                        usernameToReceive = usernameToReceive.filter(username => !usernameToNotifySet.has(username) && username != body.username);
-                        if (usernameToReceive && usernameToReceive.length) {
-                            RingBellItemService.insert(
-                                dbPrefix,
-                                username,
-                                "task_updated_status",
-                                { taskCode: docUpdated.code, title: docUpdated.title, username_updated_status: username, action: "startTask" },
-                                usernameToReceive,
-                                [],
-                                "startTask",
-                                date.getTime());
-                        }
-                    })
-                    .catch(function (err) {
-                        console.error(err);
-                        dfd.reject(err);
-                    });
+                    RingBellItemService.insert(
+                        dbPrefix,
+                        username,
+                        "task_updated_status",
+                        { 
+                            taskCode: docUpdated.code,
+                            title: docUpdated.title,
+                            username_updated_status: username,
+                            action: "startTask"
+                        },
+                        usernameToNotify,
+                        [],
+                        "startTask",
+                        date.getTime()
+                    );
                 }, function (err) {
                     dfd.reject(err);
                 });
@@ -3897,7 +4061,7 @@ class TaskController {
                                 RingBellItemService.insert(
                                     req.body._service[0].dbname_prefix,
                                     req.body.username,
-                                    "task_updated_status",
+                                    TASK_ACTION.TASK_UPDATE_STATUS,
                                     {
                                         taskCode: data.code,
                                         title: docUpdated.title,
@@ -3906,7 +4070,7 @@ class TaskController {
                                     },
                                     usernameToNotify,
                                     [],
-                                    "doneTask",
+                                    TASK_FROM_ACTION.DONE_TASK,
                                     date.getTime(),
                                 );
                                 dfd.resolve(true);
@@ -3984,7 +4148,7 @@ class TaskController {
                                 RingBellItemService.insert(
                                     req.body._service[0].dbname_prefix,
                                     req.body.username,
-                                    "task_updated_status",
+                                    TASK_ACTION.TASK_UPDATE_STATUS,
                                     {
                                         taskCode: data.code,
                                         title: docUpdated.title,
@@ -3993,7 +4157,7 @@ class TaskController {
                                     },
                                     usernameToNotify,
                                     [],
-                                    "completedTask",
+                                    TASK_FROM_ACTION.COMPLETED_TASK,
                                     date.getTime(),
                                 );
                                 dfd.resolve(true);
@@ -4077,7 +4241,7 @@ class TaskController {
                                 RingBellItemService.insert(
                                     req.body._service[0].dbname_prefix,
                                     req.body.username,
-                                    "task_updated_status",
+                                    TASK_ACTION.TASK_UPDATE_STATUS,
                                     {
                                         taskCode: data.code,
                                         title: docUpdated.title,
@@ -4086,7 +4250,7 @@ class TaskController {
                                     },
                                     usernameToNotify,
                                     [],
-                                    "notApproved",
+                                    TASK_FROM_ACTION.NOT_APPROVED,
                                     date.getTime(),
                                 );
                                 dfd.resolve(true);
@@ -4357,24 +4521,24 @@ class TaskController {
                 let action, actionFrom;
                 switch (res.Fields.type) {
                     case TASK_COMMENT_TYPE.COMMENT:
-                        action = "task_add_comment";
-                        actionFrom = "commentTask";
+                        action = TASK_ACTION.ADD_COMMENT;
+                        actionFrom = TASK_FROM_ACTION.COMMENT_TASK;
                         break;
                     case TASK_COMMENT_TYPE.CHALLENGE:
-                        action = "task_add_challenge";
-                        actionFrom = "addChallengeTask";
+                        action = TASK_ACTION.ADD_CHALLENGE;
+                        actionFrom = TASK_FROM_ACTION.ADD_CHALLENGE_TASK;
                         break;
                     case TASK_COMMENT_TYPE.CHALLENGE_RESOLVER:
-                        action = "task_add_challenge_resolver";
-                        actionFrom = "addChallengeResolverTask";
+                        action = TASK_ACTION.ADD_CHALLENGE_RESOLVER;
+                        actionFrom = TASK_FROM_ACTION.ADD_CHALLENGE_RESOLVER;
                         break;
                     case TASK_COMMENT_TYPE.REMIND:
-                        action = "task_add_remind";
-                        actionFrom = "addRemindTask";
+                        action = TASK_ACTION.ADD_REMIND;
+                        actionFrom = TASK_FROM_ACTION.ADD_REMIND;
                         break;
                     case TASK_COMMENT_TYPE.GUIDE_TO_RESOLVE_CHALLENGE:
-                        action = "task_add_guide_to_resolve_challenge";
-                        actionFrom = "addGuideToResolveChallengeTask";
+                        action = TASK_ACTION.ADD_GUIDE_TO_CHALLENGE_RESOLVER;
+                        actionFrom = TASK_FROM_ACTION.ADD_GUIDE_TO_CHALLENGE_RESOLVER;
                         break;
                 }
                 RingBellItemService.insert(req.body._service[0].dbname_prefix, req.body.username, action, { taskCode: docUpdated.code, title: docUpdated.title, username_add_comment: req.body.username }, usernameToNotify, [], actionFrom, date.getTime());
@@ -4616,7 +4780,7 @@ class TaskController {
                             RingBellItemService.insert(
                                 body._service[0].dbname_prefix,
                                 body.username,
-                                "task_updated_progress",
+                                TASK_ACTION.TASK_UPDATED_PROGRESS,
                                 {
                                     taskCode: docUpdated.code,
                                     title: docUpdated.title,
@@ -4626,7 +4790,7 @@ class TaskController {
                                 },
                                 usernameToNotify,
                                 [],
-                                "updateProgress",
+                                TASK_FROM_ACTION.UPDATE_PROGRESS,
                                 date.getTime(),
                             );
                         }
@@ -4802,15 +4966,16 @@ class TaskController {
                 TaskService.insert_transferTicketTask(dbPrefix, req.body.username, data).then(function (task) {
                     dfd.resolve(task);
                     const filterNotify = genFilterGetUsersByRuleAndDepartment(TASK_RULE.RECEIVE_TASK, data.from_department);
-                    notify(req, filterNotify, 'need_approve_department_receive_task', {
+                    notify(req, filterNotify, TASK_ACTION.NEED_APPROVE_DEPARTMENT_RECEIVE_TASK, {
                         code: task.code,
+                        taskCode: task.parent_code,
                         parent_code: task.parent_code,
                         title: task.title,
                         from_department: data.from_department,
                         department: data.department,
                         time: date.getTime(),
                         username: req.body.username, 
-                    }, 'need_approve_department_receive_task');
+                    }, TASK_FROM_ACTION.NEED_APPROVE_DEPARTMENT_RECEIVE_TASK);
                 }, function(err){
                     dfd.reject(err);
                 })
@@ -4839,9 +5004,10 @@ class TaskController {
                 RingBellItemService.insert(
                     body._service[0].dbname_prefix,
                     body.username,
-                    'receive_task',
+                    TASK_ACTION.RECEIVE_TASK,
                     {
                         code: task.code,
+                        taskCode: task.parent_code,
                         parent_code: task.parent_code,
                         title: task.title,
                         from_department: task.from_department,
@@ -4851,7 +5017,7 @@ class TaskController {
                     },
                     [task.username],
                     [],
-                    'receive_task',
+                    TASK_FROM_ACTION.RECEIVE_TASK,
                     new Date().getTime()
                 );
             }, function (err) {
@@ -4884,15 +5050,16 @@ class TaskController {
                 dfd.resolve(true);
                 
                 const filterNotify = genFilterGetUsersByRuleAndDepartment(TASK_RULE.RECEIVE_TASK, task.department);
-                notify(req, filterNotify, 'need_approve_receive_task', {
+                notify(req, filterNotify, TASK_ACTION.NEED_APPROVAL_RECEIVE_TASK, {
                     code: task.code,
+                    taskCode: task.parent_code,
                     parent_code: task.parent_code,
                     title: task.title,
                     from_department: task.from_department,
                     department: task.department,
                     time: date.getTime(),
                     username: body.username, 
-                }, 'need_approve_receive_task');
+                }, TASK_FROM_ACTION.NEED_APPROVAL_RECEIVE_TASK);
                 
             }, function (err) {
                 dfd.reject(err);
@@ -4925,9 +5092,10 @@ class TaskController {
                 RingBellItemService.insert(
                     body._service[0].dbname_prefix,
                     body.username,
-                    'reject_approval_receive_task',
+                    TASK_ACTION.TASK_ACTION.REJECT_APPROVAL_RECEIVE_TASK,
                     {
                         code: task.code,
+                        taskCode: task.parent_code,
                         parent_code: task.parent_code,
                         title: task.title,
                         from_department: task.from_department,
@@ -4937,7 +5105,7 @@ class TaskController {
                     },
                     [task.username],
                     [],
-                    'reject_approval_receive_task',
+                    TASK_FROM_ACTION.REJECT_APPROVAL_RECEIVE_TASK,
                     new Date().getTime()
                 );
             }, function (err) {
@@ -4971,9 +5139,10 @@ class TaskController {
                 RingBellItemService.insert(
                     body._service[0].dbname_prefix,
                     body.username,
-                    'reject_receive_task',
+                    TASK_ACTION.REJECT_RECEIVE_TASK,
                     {
                         code: task.code,
+                        taskCode: task.parent_code,
                         parent_code: task.parent_code,
                         title: task.title,
                         from_department: task.from_department,
@@ -4983,7 +5152,7 @@ class TaskController {
                     },
                     [task.username],
                     [],
-                    'reject_receive_task',
+                    TASK_FROM_ACTION.REJECT_RECEIVE_TASK,
                     new Date().getTime()
                 );
             }, function (err) {
@@ -5091,63 +5260,35 @@ class TaskController {
 
             }).then(function (task) {
                 dfd.resolve(task);
-                    data.code = task.code
 
-                    if (data.main_person && data.main_person.length > 0) {
-                        data.main_person.filter(username => username !== currentUser)
-                        RingBellItemService.insert(
-                            dbPrefix,
-                            currentUser,
-                            "task_assigned_main_person",
-                            {
-                                taskCode: task.code,
-                                title: task.title,
-                                username_create_task: currentUser,
-                            },
-                            task.main_person,
-                            [],
-                            "createTask",
-                            date.getTime()
-                        );
+                data.code = task.code
+
+                const notifyUsers = (userList, type) => {
+                    if (userList && userList.length > 0) {
+                        const filteredUsers = userList.filter(username => username !== currentUser);
+                        if (filteredUsers.length > 0) {
+                            RingBellItemService.insert(
+                                dbPrefix,
+                                currentUser,
+                                type,
+                                {
+                                    taskCode: data.code,
+                                    title: data.title,
+                                    username_create_task: currentUser
+                                },
+                                filteredUsers,
+                                [],
+                                TASK_FROM_ACTION.CREATE,
+                                date.getTime()
+                            );
+                        }
                     }
+                };
 
-
-                    if (data.participant && data.participant.length > 0) {
-                        data.participant.filter(username => username !== currentUser)
-                        RingBellItemService.insert(
-                            dbPrefix,
-                            currentUser,
-                            "task_assigned_participant",
-                            {
-                                taskCode: data.code,
-                                title: data.title,
-                                username_create_task: currentUser,
-                            },
-                            data.participant,
-                            [],
-                            "createTask",
-                            date.getTime(),
-                        );
-                    }
-
-                    if (data.observer && data.observer.length > 0) {
-                        data.observer.filter(username => username !== currentUser)
-                        RingBellItemService.insert(
-                            dbPrefix,
-                            currentUser,
-                            "task_assigned_observer",
-                            {
-                                taskCode: data.code,
-                                title: data.title,
-                                username_create_task: currentUser,
-                            },
-                            data.observer,
-                            [],
-                            "createTask",
-                            date.getTime(),
-                        );
-                    }
-
+                // Notify to MainPerson, Participant, Observer
+                notifyUsers(data.main_person, TASK_ACTION.ASSIGNED_MAIN_PERSON);
+                notifyUsers(data.participant, TASK_ACTION.ASSIGNED_PARTICIPANT);
+                notifyUsers(data.observer, TASK_ACTION.ASSIGNED_OBSERVER);
             }, function(err){
                 console.error(err)
                 dfd.reject(err);
@@ -5267,6 +5408,125 @@ class TaskController {
         return dfd.promise;
     }
 
+    load_employee_no_task(body) {
+        let filter = genFilterDataNoTask(body);
+        return UserService.loadEmployeeNoTask(body._service[0].dbname_prefix, filter, body.top, body.offset);
+    }
+
+    count_employee_no_task(body) {
+        let filter = genFilterCountDataNoTask(body);
+        return UserService.countEmployeeNoTask(body._service[0].dbname_prefix, filter, body.top, body.offset);
+    }
+
+    export_statistic_task_uncompleted(body) {
+        let dfd = q.defer();
+        const dbPrefix = body._service[0].dbname_prefix;
+        const workbook = XLSX.utils.book_new();
+
+        TaskService.loadStatisticTaskUncompleted(dbPrefix, body).then((data) => {
+            data = groupByColumn(data, 'username');
+            for(let username in data) {
+                const tasks = data[username];
+                
+                // Create empty worksheet first
+                const worksheet = XLSX.utils.book_new();
+                    
+                // Add column headers in row 2
+                const headers = [
+                    'Mã công việc',
+                    'Phòng ban',
+                    'Tiêu đề',
+                    'Ngày bắt đầu',
+                    'Thời hạn',
+                    'Thời gian yêu cầu hoàn thành',
+                    'Nhãn',
+                    'Vai trò',
+                ];
+                XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A2' });
+
+                // Then add data starting from row 3
+                const worksheetData = tasks.map(task => ([
+                    task.code,
+                    task.department_title['vi-VN'],
+                    task.title,
+                    formatToTimestamp(task.from_date),
+                    task.to_date ? formatToTimestamp(task.to_date): '',
+                    task.estimate,
+                    task.labelTitles.map(label => label.title).join('\n'),
+                    task.roles.map(role => convertRole(role)).join('\n'),
+                ]));
+                XLSX.utils.sheet_add_aoa(worksheet, worksheetData, { origin: 'A3' });
+
+                // Merge cells for main header
+                worksheet['!merges'] = worksheet['!merges'] || [];
+                worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } });
+
+                // Set column widths
+                const columnWidths = [
+                    { wch: 15 },  // Mã công việc
+                    { wch: 20 },  // Phòng ban
+                    { wch: 30 },  // Tiêu đề
+                    { wch: 15 },  // Ngày bắt đầu
+                    { wch: 15 },  // Thời hạn
+                    { wch: 25 },  // Thời gian yêu cầu hoàn thành
+                    { wch: 25 },  // Nhãn
+                    { wch: 20 }   // Vai trò
+                ];
+                worksheet['!cols'] = columnWidths;
+
+                // Add borders and styling
+                const range = XLSX.utils.decode_range(worksheet['!ref']);
+                for (let R = 0; R <= range.e.r; R++) {
+                    for (let C = 0; C <= range.e.c; C++) {
+                        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+                        if (!worksheet[cellRef]) continue;
+
+                        worksheet[cellRef].s = worksheet[cellRef].s || {};
+                        
+                        // Add borders to all cells
+                        worksheet[cellRef].s.border = {
+                            top: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            left: { style: 'thin' },
+                            right: { style: 'thin' }
+                        };
+
+                        // Bold font for column headers (row 2)
+                        if (R === 1) {
+                            worksheet[cellRef].s.font = {
+                                bold: true,
+                                sz: 15
+                            };
+                            worksheet[cellRef].s.fill = {
+                                fgColor: { rgb: "F2F2F2" }  // Light gray background
+                            };
+                            worksheet[cellRef].s.alignment = {
+                                horizontal: "center",
+                                vertical: "center",
+                                wrapText: true
+                            };
+                        }
+
+                        // Alignment for data cells
+                        worksheet[cellRef].s.alignment = {
+                            vertical: "center",
+                            horizontal: "center",
+                            wrapText: true
+                        };
+                    }
+                }
+
+                XLSX.utils.book_append_sheet(workbook, worksheet, tasks[0].titleName || username);
+            }
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+            dfd.resolve(excelBuffer);
+            
+        }, function(err){
+            dfd.reject(err);
+        })
+        return dfd.promise;
+    }
+
 }
 
 const addComment = function (req, res, date, data, attachment) {
@@ -5347,6 +5607,134 @@ function verify_Update(body, code){
     })
     return dfd.promise;
 }
+
+const genFilterDataNoTask = function (body) {
+    const conditions = [
+      {
+        $addFields: {
+          isNotAdmin: { $ne: ["$admin", true] }
+        }
+      },
+      {
+        $match: {
+        isNotAdmin: true,
+        isactive: true,
+        ...(Array.isArray(body.employee) && body.employee.length > 0 ? { username: { $in: body.employee } } : {}),
+        ...(Array.isArray(body.department) && body.department.length > 0 ? { department: { $in: body.department } } : {})
+      }
+      },
+      {
+        $lookup: {
+          from: 'task',
+          let: { userId: '$username' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $or: [
+                        { $in: ['$$userId', '$participant'] },
+                        { $in: ['$$userId', '$main_person'] },
+                      ],
+                    },
+                    {$not: { $in: ['$status', [TASK_STATUS.COMPLETED, TASK_STATUS.CANCELLED]] }}
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'tasks',
+        },
+      },
+      {
+        $match: {
+          tasks: { $size: 0 },
+        },
+      },
+      {
+        $lookup: {
+          from: "organization", 
+          localField: "department",
+          foreignField: "id",
+          as: "departmentInfo"
+        }
+      },
+      {
+        $addFields: {
+          departmentTitle: { $arrayElemAt: ["$departmentInfo.title.vi-VN", 0] }
+        }
+      },
+      {
+        $skip: body.offset
+      },
+      {
+        $limit: body.top 
+      },
+      {
+        $project: {
+          username: 1,  
+          title: 1,    
+          departmentTitle: 1
+        }
+      }
+    ];
+  
+    return conditions;
+};
+
+const genFilterCountDataNoTask = function (body) {
+    const conditions = [
+      {
+        $addFields: {
+          isNotAdmin: { $ne: ["$admin", true] }
+        }
+      },
+      {
+        $match: {
+        isNotAdmin: true,
+        isactive: true,
+        ...(Array.isArray(body.employee) && body.employee.length > 0 ? { username: { $in: body.employee } } : {}),
+        ...(Array.isArray(body.department) && body.department.length > 0 ? { department: { $in: body.department } } : {})
+      }
+      },
+      {
+        $lookup: {
+          from: 'task',
+          let: { userId: '$username' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $or: [
+                        { $in: ['$$userId', '$participant'] },
+                        { $in: ['$$userId', '$main_person'] },
+                      ],
+                    },
+                    {$not: { $in: ['$status', [TASK_STATUS.COMPLETED, TASK_STATUS.CANCELLED]] }}
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'tasks',
+        },
+      },
+      {
+        $match: {
+          tasks: { $size: 0 },
+        },
+      },
+     {
+        $count: "count"
+     }
+    ];
+  
+    return conditions;
+};
+
 
 exports.TaskController = new TaskController();
 exports.loadTaskReferences = loadTaskReferences;

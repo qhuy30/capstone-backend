@@ -141,4 +141,14 @@ validation.updateGroupOrganization = function(req, res, next) {
     ValidationProvider.createValidator(schema_body, req, res, next);
 };
 
+validation.load_employee_by_departments = function(req, res, next) {
+    const schema_body = {
+        departments: Joi.array().items(Joi.string()).default([]),
+        search: Joi.string().allow(null, ''),
+        top: Joi.number(),
+        offset: Joi.number(),
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+}
+
 exports.validation = validation;

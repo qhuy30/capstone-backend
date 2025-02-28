@@ -35,6 +35,13 @@ validation.changeLanguage = function (req, res, next) {
     ValidationProvider.createMiddleware(schema_body, req, res, next);
 }
 
+validation.changeLanguageMobile = function (req, res, next) {
+    const schema_body = {
+        key: Joi.string().required()
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+}
+
 
 validation.register = function (req, res, next) {
     const schema_body = {
@@ -44,6 +51,14 @@ validation.register = function (req, res, next) {
         language:Joi.string(),
         isactive:Joi.boolean(),
         department: Joi.string().required()
+    };
+    ValidationProvider.createMiddleware(schema_body, req, res, next);
+}
+
+validation.sub_register = function (req, res, next) {
+    const schema_body = {
+        username: Joi.string().required(),
+        password: Joi.string().required(),
     };
     ValidationProvider.createMiddleware(schema_body, req, res, next);
 }

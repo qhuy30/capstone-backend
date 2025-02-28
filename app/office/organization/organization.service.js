@@ -708,6 +708,47 @@ class OrganizationService {
         return dfd.promise;
     }
 
+    load_employee_by_departments(dbPrefix, body) {
+        const dfd = q.defer();
+        const filter = {};
+        const conditions = [];
+        if (body.departments && body.departments.length > 0) {
+            conditions.push({
+                department: { $in: body.departments },
+            });
+        }
+
+        if (body.search) {
+            conditions.push({
+                $text: {
+                    $search: `"${body.search}" "${generateSearchText(body.search)}"`,
+                },
+            });
+        }
+        if (conditions.length > 0) {
+            filter.$and = conditions;
+        }
+
+        MongoDBProvider.load_onManagement(
+            dbPrefix,
+            "user",
+            filter,
+            parseInt(body.top) || null,
+            parseInt(body.offset) || null,
+        )
+            .then((data) => {
+                dfd.resolve(data.map(transformEntityToDto));
+            })
+            .catch((error) => {
+                LogProvider.error("Can not load multiple employee with reason: " + error.mes || error.message || error);
+                dfd.reject({
+                    path: "OrganizationService.loadAllEmployee.load_onOffice",
+                    mes: "Can not load employee",
+                });
+            });
+        return dfd.promise;
+    }
+
 }
 
 class GroupOrganizationService {

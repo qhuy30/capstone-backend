@@ -5,7 +5,6 @@ const { SetupService } = require('./setup.service');
 const { LanguageProvider } = require('../../../shared/localization/language.provider');
 
 
-
 class SetupController {
     constructor() { }
 

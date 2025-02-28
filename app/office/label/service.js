@@ -233,18 +233,18 @@ class LabelService {
                     throw new BaseError(null, "NotFoundParentLabel");
                 }
 
-                if (entity.parent_label) {
-                    if (!permissionCheck.child.check) {
-                        throw new BaseError(null, "NotHavePermissionInsertChildLabel");
-                    }
+                // if (entity.parent_label) {
+                //     if (!permissionCheck.child.check) {
+                //         throw new BaseError(null, "NotHavePermissionInsertChildLabel");
+                //     }
 
-                    if (Array.isArray(permissionCheck.child.department) && permissionCheck.child.department.length > 0) {
-                        const notAllowDepartment = _.difference(result.departments, permissionCheck.child.department);
-                        if (notAllowDepartment.length > 0) {
-                            throw new BaseError(null, "ChildLabelHaveNotAllowDepartment");
-                        }
-                    }
-                }
+                //     if (Array.isArray(permissionCheck.child.department) && permissionCheck.child.department.length > 0) {
+                //         const notAllowDepartment = _.difference(result.departments, permissionCheck.child.department);
+                //         if (notAllowDepartment.length > 0) {
+                //             throw new BaseError(null, "ChildLabelHaveNotAllowDepartment");
+                //         }
+                //     }
+                // }
                 return MongoDBProvider.insert_onOffice(dbPrefix, LABEL_COLLECTION, username, entity);
             })
             .then((result) => {
@@ -331,24 +331,24 @@ class LabelService {
                     throw new BaseError(null, "NotFoundParentLabel");
                 }
 
-                if (updatedEntity.parent_label) {
-                    if (!permissionCheck.child.check) {
-                        throw new BaseError(null, "NotHavePermissionUpdateChildLabel");
-                    }
+                // if (updatedEntity.parent_label) {
+                //     if (!permissionCheck.child.check) {
+                //         throw new BaseError(null, "NotHavePermissionUpdateChildLabel");
+                //     }
 
-                    if (
-                        Array.isArray(permissionCheck.child.department) &&
-                        permissionCheck.child.department.length > 0
-                    ) {
-                        const notAllowDepartment = _.difference(
-                            result.departments,
-                            permissionCheck.child.department
-                        );
-                        if (notAllowDepartment.length > 0) {
-                            throw new BaseError(null, "ChildLabelHaveNotAllowDepartment");
-                        }
-                    }
-                }
+                //     if (
+                //         Array.isArray(permissionCheck.child.department) &&
+                //         permissionCheck.child.department.length > 0
+                //     ) {
+                //         const notAllowDepartment = _.difference(
+                //             result.departments,
+                //             permissionCheck.child.department
+                //         );
+                //         if (notAllowDepartment.length > 0) {
+                //             throw new BaseError(null, "ChildLabelHaveNotAllowDepartment");
+                //         }
+                //     }
+                // }
 
                 const updatedData = {
                     $set: updatedEntity,

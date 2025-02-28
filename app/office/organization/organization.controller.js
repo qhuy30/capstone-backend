@@ -4,16 +4,12 @@ const { OrganizationService, GroupOrganizationService } = require('./organizatio
 
 
 const genFilter = function (body) {
-    if (body.level === 1) {
-        return { level: { $eq: 1 } };
-    } else {
-        return {
-            $and: [
-                { level: { $eq: body.level } },
-                { parent: { $eq: body.id } }
-            ]
-        }
-    }
+    return {
+        $and: [
+            { level: body.level },
+            ...(body.level !== 1 ? [{ parent: body.id }] : [])
+        ]
+    };
 }
 
 const genFilter_workflow = function (body) {
@@ -29,17 +25,15 @@ const genFilter_workflow = function (body) {
     }
 }
 
-const genFilter_pick_user_directive = function (body) {
-    if (body.level === 1) {
-        return { level: { $eq: 1 } };
-    } else {
-        return {
-            $and: [
-                { level: { $eq: body.level } },
-                { parent: { $eq: body.id } }
-            ]
-        }
-    }
+const genFilter_noSystem = function (body) {
+    return {
+        $and: [
+            { type: "department" },
+            { abbreviation: { $ne: "system" } },
+            { level: body.level },
+            ...(body.level !== 1 ? [{ parent: body.id }] : [])
+        ]
+    };
 }
 
 const genFilter_department_branch = function (body) {
@@ -161,7 +155,7 @@ class OrganizationController {
     }
 
     load(body) {
-        return OrganizationService.load(body._service[0].dbname_prefix, genFilter(body));
+        return OrganizationService.load(body._service[0].dbname_prefix, genFilter_noSystem(body));
     }
 
     load_for_workflow(body) {
@@ -172,7 +166,7 @@ class OrganizationController {
 
 
     load_for_pick_user_directive(body){
-        return OrganizationService.load_for_pick_user_directive(body._service[0].dbname_prefix, genFilter_pick_user_directive(body));
+        return OrganizationService.load_for_pick_user_directive(body._service[0].dbname_prefix, genFilter_noSystem(body));
     }
 
     load_department_branch(body) {
@@ -243,6 +237,10 @@ class OrganizationController {
 
     loadMultipleEmployee (body) {
         return OrganizationService.loadMultipleEmployee(body._service[0].dbname_prefix, body);
+    }
+
+    load_employee_by_departments (body) {
+        return OrganizationService.load_employee_by_departments(body._service[0].dbname_prefix, body);
     }
 
 }

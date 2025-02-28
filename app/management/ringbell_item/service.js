@@ -2,6 +2,7 @@ const { MongoDBProvider } = require('../../../shared/mongodb/db.provider');
 const q = require('q');
 const { SocketProvider } = require('./../../../shared/socket/provider');
 const { FirebaseProvider } = require('@shared/firebase/firebase.provider');
+const { getTitle, getContent } = require('@utils/mobileUtil');
 class RingBellItemService {
     constructor() { }
 
@@ -51,16 +52,21 @@ class RingBellItemService {
 
                 //Send notifications to firebase
                 MongoDBProvider.load_onManagement(dbname_prefix, 'user', { username: { $in: to_username } }).then(function(users){
-                    const fcmTokens = users.map(user => user.fcmToken).filter(token => token); 
-                    const data = { username, action, to_username, seen, from_action, notify_time, to_students, params }
-                    fcmTokens.forEach(token => {
+                    users.forEach(user => {
+                        const token = user.fcmToken; 
+                        // const token = "fSKH4ZD_DEUVkYEybiXMhj:APA91bHxHf73hBFft058VA4a8nCvaIGLTGIq33ARCarheWwSlW_exmWlItApJdvQajRU4uENOe86dvvtbTqdj8CDIG6_u4DvF0dBG56DB0OqkP0z0RyuHx8"; 
+                        if(token){
+                            const data = { username, action, to_username, seen, from_action, notify_time, to_students, params }
+                            const languageCurrent = (user.language_mobile ? user.language_mobile.current : 'vi-VN') || 'vi-VN';
                             FirebaseProvider.sendToDevice(
-                            token,
-                            action,
-                            from_action,
-                            { data: JSON.stringify(data) } 
-                        )
-                    });
+                                token,
+                                getTitle(action, languageCurrent),
+                                getContent(action, from_action, languageCurrent, params),
+                                { data: JSON.stringify(data) } 
+                            )
+                        }
+
+                    })
                 }, function(err){
                     console.log(err)
                 })

@@ -586,7 +586,7 @@ class BuildFilterAggregateEventCalendar {
         return aggregationSteps;
     }
 
-    generatePermissionAggregate_ManageUI(username, department, rule, tab, checks, tab_child, filter_employee, aggregationSteps = []) {
+    generatePermissionAggregate_ManageUI(username, department, rule, tab, checks, tab_child, sub_filter, aggregationSteps = []) {
         let conditions = [];
         switch (tab) {
             case EVENT_CALENDAR_UI_TAB.MANAGEMENT:
@@ -635,30 +635,30 @@ class BuildFilterAggregateEventCalendar {
                 break;
 
             case EVENT_CALENDAR_UI_TAB.CALENDAR:
-                if (checks.includes(EVENT_CALENDAR_UI_CHECK.DEPARTMENT)) {
-                    const responsibilityConditions = generateAggregationCondition_DepartmentResponsibility(department, rule);
-                    conditions = conditions.concat(responsibilityConditions);
-                }
+                // if (checks.includes(EVENT_CALENDAR_UI_CHECK.DEPARTMENT)) {
+                //     const responsibilityConditions = generateAggregationCondition_DepartmentResponsibility(department, rule);
+                //     conditions = conditions.concat(responsibilityConditions);
+                // }
 
-                if (checks.includes(EVENT_CALENDAR_UI_CHECK.CREATED)) {
-                    const createdConditions = generateAggregationCondition_Created(username);
-                    conditions = conditions.concat(createdConditions);
-                }
+                // if (checks.includes(EVENT_CALENDAR_UI_CHECK.CREATED)) {
+                //     const createdConditions = generateAggregationCondition_Created(username);
+                //     conditions = conditions.concat(createdConditions);
+                // }
 
-                if (checks.includes(EVENT_CALENDAR_UI_CHECK.PERSONALLY_INVOLVED)) {
-                    const personallyInvolvedCondition = {
-                        $or:[
-                            { participants: { $eq: username } },
-                            { main_person: { $eq: username } },
-                        ]
-                    }
-                    conditions.push(personallyInvolvedCondition);
-                }
+                // if (checks.includes(EVENT_CALENDAR_UI_CHECK.PERSONALLY_INVOLVED)) {
+                //     const personallyInvolvedCondition = {
+                //         $or:[
+                //             { participants: { $eq: username } },
+                //             { main_person: { $eq: username } },
+                //         ]
+                //     }
+                //     conditions.push(personallyInvolvedCondition);
+                // }
 
-                if (checks.includes(EVENT_CALENDAR_UI_CHECK.MANAGE)) {
-                    const manageConditions = generateAggregationCondition_Manage(rule);
-                    conditions = conditions.concat(manageConditions);
-                }
+                // if (checks.includes(EVENT_CALENDAR_UI_CHECK.MANAGE)) {
+                //     const manageConditions = generateAggregationCondition_Manage(rule);
+                //     conditions = conditions.concat(manageConditions);
+                // }
 
                 //filter for child tab calendar
                     //my_calendar
@@ -687,10 +687,10 @@ class BuildFilterAggregateEventCalendar {
                 }
                     //my_employee
                 if (tab_child === EVENT_CALENDAR_UI_CHILD_TAB.MY_EMPLOYEE_CALENDAR) {
-                    if (filter_employee && filter_employee.length > 0){
+                    if (sub_filter.employees && sub_filter.employees.length > 0){
                         conditions.push({
                             $and: [
-                                { "participants_info.username": {$in: filter_employee } },
+                                { "participants_info.username": { $in: sub_filter.employees } },
                                 {
                                     $or: [
                                         { "participants_info.department": { $eq: department } },
@@ -708,6 +708,25 @@ class BuildFilterAggregateEventCalendar {
                         })
                     }
                     
+                }
+
+                if (tab_child === EVENT_CALENDAR_UI_CHILD_TAB.WHOLE_SCHOOL_CALENDAR) {
+                    if (sub_filter.departments && sub_filter.departments.length > 0){
+                        conditions.push({
+                            $and: [
+                                { feature: { $eq: EVENT_FEATURE_NAME } },
+                                { level: LEVEl_CALENDAR.LEVEL_2 },
+                                { department: { $in: sub_filter.departments } }
+                            ]
+                        })
+                    }else{
+                        conditions.push({
+                            $and: [
+                                { feature: { $eq: EVENT_FEATURE_NAME } },
+                                { level: LEVEl_CALENDAR.LEVEL_2 }
+                            ]
+                        });
+                    }
                 }
                 break;
         } 

@@ -30,7 +30,7 @@ class EventCalendarController {
             body.tab,
             body.checks,
             body.tab_child,
-            body.filter_employee,
+            body.sub_filter,
             aggerationSearch
         );
         const queryCriteria = { ...body };
@@ -48,7 +48,7 @@ class EventCalendarController {
             body.tab,
             body.checks,
             body.tab_child,
-            body.filter_employee,
+            body.sub_filter,
             aggerationSearch
         );
         const queryCriteria = { ...body };
@@ -600,7 +600,7 @@ class EventCalendarController {
             EVENT_CALENDAR_UI_TAB.CALENDAR,
             body.checks,
             body.tab_child,
-            body.filter_employee,
+            body.sub_filter,
             aggerationSearch
         );
         const queryCriteria = { ...body };
@@ -849,7 +849,7 @@ class EventCalendarController {
             EVENT_CALENDAR_UI_TAB.CALENDAR,
             body.checks,
             body.tab_child,
-            body.filter_employee,
+            body.sub_filter,
             aggerationSearch
         );
         const queryCriteria = { ...body };

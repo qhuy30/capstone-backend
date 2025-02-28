@@ -25,5 +25,4 @@ router.get('/init',MultiTenant.match(), Router.trycatchFunction("get/management/
     }
 }));
 
-
 module.exports = router;

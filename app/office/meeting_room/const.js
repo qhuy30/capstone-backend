@@ -85,6 +85,7 @@ exports.MEETING_ROOM_ACTION_NAME = {
     REQUEST_CANCEL: 'registration_room_request_cancel',
     UPDATE: 'registration_room_update',
     CREATE: 'registration_room_create',
+    REGISTRATION_ROOM_LETTER: 'registration_room_letter',
 }
 
 exports.MEETING_ROOM_SCHEDULE_FLOW ={
