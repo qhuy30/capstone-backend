@@ -51,16 +51,6 @@ class Server {
     }
 
     start() {
-        //const https = require('https');
-        //const hostname = setting.hostname;
-        //const options = {
-        //    ca: fs.readFileSync('./SSL/devspo.com/ca_bundle.crt'),
-        //    key: fs.readFileSync('./SSL/devspo.com/private.key'),
-        //    cert: fs.readFileSync('./SSL/devspo.com/certificate.crt')
-        //};
-        //var server = https.createServer(options, app).listen(port, hostname, function () {
-        //    logger.info("Server is listening port " + port);
-        //});
         const http = httpModule.Server(app);
         var server = http.listen(setting.port, setting.hostname, function () {
             LogProvider.info(
@@ -98,14 +88,9 @@ class Server {
     initExpressMiddleware() {
 
         app.set('trust proxy', 1);
-        //  apply to all requests
-        // const limiter = rateLimit({
-        //     windowMs: setting.windowms,
-        //     max: setting.maxRequestPerIp
-        // });
         app.use(log('dev'));
         const corsOptions = {
-            origin: ['http://localhost:3001', 'http://localhost:3005', 'https://vpdt.pnt.edu.vn', 'https://view.officeapps.live.com', 'https://vpdt-be.pnt.edu.vn'],
+            origin: ['http://localhost:3001', 'http://localhost:3005'],
             methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
             allowedHeaders: ['Content-Type', 'Authorization']
         };
@@ -123,7 +108,7 @@ class Server {
                     objectSrc: ["'none'"],
                     mediaSrc: ["'self'"],
                     frameSrc: ["'self'"],
-                    frameAncestors: ["'self'", "http://localhost:3001", 'http://localhost:3005', "https://vpdt.pnt.edu.vn", "https://view.officeapps.live.com", "https://vpdt-be.pnt.edu.vn", "https://vpdt.pnt.edu.vn"]
+                    frameAncestors: ["'self'", "http://localhost:3001", 'http://localhost:3005']
                 }
             })
         );
@@ -230,13 +215,3 @@ class Server {
 }
 
 new Server();
-
-
-
-
-
-
-
-
-
-
