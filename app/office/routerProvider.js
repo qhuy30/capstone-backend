@@ -26,4 +26,5 @@ module.exports = [
     { path: '/office/card_vehical', router: require('./card_vehicle/router') },
     { path: '/office/advanced_search', router: require('./advanced_search/router') },
     { path: '/office/support', router: require('./support/router') },
+    { path: '/office/elearning', router: require('./elearning/router') },
 ]

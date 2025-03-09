@@ -20,4 +20,5 @@ module.exports = [
     require('./event_calendar/map'),
     require('./advanced_search/map'),
     require('./support/map'),
+    require('./elearning/map'),
 ];

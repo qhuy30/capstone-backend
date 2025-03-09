@@ -31,6 +31,7 @@ let indexAr = [
     require('./meeting_room/index'),
     require('./event_calendar/index'),
     require('./advanced_search/index'),
+    require('./elearning/index'),
 ];
 
 module.exports = generateArrayValue(indexAr);

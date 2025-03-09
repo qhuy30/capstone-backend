@@ -2,7 +2,6 @@ const { MongoDBProvider } = require('../../../shared/mongodb/db.provider');
 const q = require('q');
 const { SocketProvider } = require('./../../../shared/socket/provider');
 const { FirebaseProvider } = require('@shared/firebase/firebase.provider');
-const { getTitle, getContent } = require('@utils/mobileUtil');
 class RingBellItemService {
     constructor() { }
 
